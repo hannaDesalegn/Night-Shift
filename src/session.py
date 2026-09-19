@@ -31,6 +31,7 @@ class Session:
         self.generator = Generator(layout.generator_tiles)
         self.enemy = Enemy(layout.patrol_points, start_index=settings.ENEMY_START_POST)
         self.elapsed = 0.0
+        self.time_left = settings.TIME_LIMIT
         self.events = []
         # None while the run is in progress, otherwise the reason it ended.
         self.outcome = None
@@ -41,6 +42,8 @@ class Session:
         if self.outcome:
             return self.events
         self.elapsed += dt
+        if self._tick_clock(dt):
+            return self.events
         self.player.update(dt, controls.move, self.world)
         self._update_flashlight(dt, controls.toggle_flashlight)
         alert = self.enemy.update(dt, self.world, self.player)
@@ -102,6 +105,17 @@ class Session:
             else:
                 self.player.inventory.add(pickup.kind)
             self.emit("pickup", pickup.pos, f"{pickup.name} acquired", pickup.kind)
+
+    def _tick_clock(self, dt):
+        """Count down the shift; returns True if time ran out this frame."""
+        before = self.time_left
+        self.time_left = max(0.0, self.time_left - dt)
+        if before > settings.TIME_WARNING >= self.time_left:
+            self.emit("time_low", text="One minute left")
+        if self.time_left <= 0:
+            self.finish("timeout")
+            return True
+        return False
 
     def _update_flashlight(self, dt, toggle):
         player = self.player

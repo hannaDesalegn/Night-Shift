@@ -93,3 +93,24 @@ def test_losing_all_health_ends_the_run():
     events = step(session)
     assert session.outcome == "caught"
     assert "caught" in [e.kind for e in events]
+
+
+def test_timer_counts_down():
+    session = Session()
+    step(session, seconds=2.0)
+    assert abs(session.time_left - (settings.TIME_LIMIT - 2.0)) < 0.05
+
+
+def test_time_warning_fires_once():
+    session = Session()
+    session.time_left = settings.TIME_WARNING + 0.5
+    events = step(session, seconds=2.0)
+    assert [e.kind for e in events].count("time_low") == 1
+
+
+def test_running_out_of_time_ends_the_run():
+    session = Session()
+    session.time_left = 0.5
+    step(session, seconds=1.0)
+    assert session.outcome == "timeout"
+    assert session.time_left == 0

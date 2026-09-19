@@ -15,6 +15,10 @@ TEXT_DIM = (120, 126, 140)
 ACCENT = (242, 178, 72)
 DANGER = (222, 64, 64)
 
+# Run
+TIME_LIMIT = 360.0
+TIME_WARNING = 60.0
+
 # World
 TILE = 48
 CAMERA_SMOOTHING = 8.0
@@ -24,7 +28,7 @@ FONT_NAMES = "consolas,dejavusansmono,menlo,couriernew"
 
 # Player
 PLAYER_SIZE = 26
-PLAYER_SPEED = 205
+PLAYER_SPEED = 175
 # How quickly velocity reaches its target; higher feels snappier.
 PLAYER_ACCEL = 16.0
 PLAYER_TURN_RATE = 12.0
@@ -44,11 +48,12 @@ GENERATOR_START_TIME = 3.0
 ENEMY_SIZE = 30
 # Index into the patrol route; the generator room keeps it away from the lobby start.
 ENEMY_START_POST = 4
-ENEMY_PATROL_SPEED = 85
+ENEMY_PATROL_SPEED = 78
 ENEMY_TURN_RATE = 6.0
 ENEMY_PATROL_PAUSE = 1.2
 ENEMY_WAYPOINT_REACHED = 6
-ENEMY_CHASE_SPEED = 172
+# Slightly slower than the player so a clean escape is always possible.
+ENEMY_CHASE_SPEED = 152
 ENEMY_SIGHT_RANGE = 300
 # A lit flashlight gives the player away from much further.
 ENEMY_LIT_SIGHT_RANGE = 460
@@ -59,7 +64,7 @@ ENEMY_FOV = 1.9
 ENEMY_NOTICE_TIME = 0.35
 ENEMY_LOSE_TIME = 0.7
 ENEMY_REPATH_INTERVAL = 0.3
-ENEMY_SEARCH_SPEED = 115
+ENEMY_SEARCH_SPEED = 100
 ENEMY_SEARCH_TIME = 6.0
 ENEMY_SEARCH_RADIUS = 3
 ENEMY_SEARCH_PAUSE = 0.6

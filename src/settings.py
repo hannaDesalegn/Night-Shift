@@ -21,3 +21,11 @@ CAMERA_SMOOTHING = 8.0
 
 # Fonts: first installed match wins, otherwise pygame's bundled font.
 FONT_NAMES = "consolas,dejavusansmono,menlo,couriernew"
+
+# Player
+PLAYER_SIZE = 26
+PLAYER_SPEED = 205
+# How quickly velocity reaches its target; higher feels snappier.
+PLAYER_ACCEL = 16.0
+PLAYER_TURN_RATE = 12.0
+PLAYER_MAX_HEALTH = 100

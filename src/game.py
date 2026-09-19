@@ -5,7 +5,9 @@ from enum import Enum, auto
 import pygame
 
 from src import settings
-from src.renderer import Camera, build_world_surface
+from src.controls import read_input
+from src.player import Player
+from src.renderer import Camera, build_world_surface, draw_player
 from src.ui import Fonts
 from src.world import World
 
@@ -28,7 +30,9 @@ class Game:
         self.world = World()
         self.world_surface = build_world_surface(self.world, self.fonts)
         self.camera = Camera(self.world.pixel_size)
-        self.camera.snap(self.world.layout.player_start)
+        self.player = Player(self.world.layout.player_start)
+        self.camera.snap(self.player.pos)
+        self.key_events = []
         self.state = State.PLAYING
         self.running = True
 
@@ -44,17 +48,24 @@ class Game:
         self.state = state
 
     def handle_events(self):
+        self.key_events = []
         for event in pygame.event.get():
+            if event.type == pygame.KEYDOWN:
+                self.key_events.append(event)
             if event.type == pygame.QUIT:
                 self.running = False
             elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
                 self.running = False
 
     def update(self, dt):
-        pass
+        if self.state is State.PLAYING:
+            controls = read_input(pygame.key.get_pressed(), self.key_events)
+            self.player.update(dt, controls.move, self.world)
+            self.camera.follow(self.player.pos, dt)
 
     def draw(self):
         self.screen.fill(settings.BG_COLOR)
         view = pygame.Rect(self.camera.offset, self.screen.get_size())
         self.screen.blit(self.world_surface, (0, 0), view)
+        draw_player(self.screen, self.player, self.camera)
         pygame.display.flip()

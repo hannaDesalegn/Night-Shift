@@ -1,5 +1,6 @@
 """World-space drawing: the pre-rendered facility and the camera that frames it."""
 
+import math
 import random
 
 import pygame
@@ -218,3 +219,34 @@ _TILE_PAINTERS = {
     "O": _paint_pillar,
     "Z": _paint_dock,
 }
+
+
+def _polar(origin, angle, dist):
+    return pygame.Vector2(origin) + pygame.Vector2(math.cos(angle), math.sin(angle)) * dist
+
+
+def draw_player(surface, player, camera):
+    center = camera.to_screen(player.pos)
+    angle = player.facing
+    side = angle + math.pi / 2
+    swing = math.sin(player.stride * 0.09) * 5 if player.moving else 0
+
+    pygame.draw.circle(surface, (0, 0, 0), center + (3, 4), 15)
+    # Hands swing opposite each other while walking; the right hand holds the torch.
+    left_hand = _polar(_polar(center, side, -12), angle, 3 - swing)
+    right_hand = _polar(_polar(center, side, 11), angle, 8 + swing * 0.3)
+    pygame.draw.circle(surface, (196, 160, 130), left_hand, 4)
+    pygame.draw.circle(surface, (196, 160, 130), right_hand, 4)
+    torch_tip = _polar(right_hand, angle, 9)
+    pygame.draw.line(surface, (70, 74, 82), right_hand, torch_tip, 5)
+
+    pygame.draw.circle(surface, (38, 62, 96), center, 13)
+    pygame.draw.circle(surface, (22, 36, 58), center, 13, 2)
+    # Reflective shoulder strip across the jacket.
+    strip = (_polar(center, side, -10), _polar(center, side, 10))
+    pygame.draw.line(surface, (210, 190, 70), *strip, 3)
+    brim = [_polar(center, a, r) for a, r in ((angle, 12), (angle + 0.9, 7), (angle - 0.9, 7))]
+    pygame.draw.polygon(surface, (20, 24, 32), brim)
+    pygame.draw.circle(surface, (64, 74, 96), center, 8)
+    pygame.draw.circle(surface, (20, 24, 32), center, 8, 2)
+    pygame.draw.circle(surface, (210, 190, 70), _polar(center, angle, 3), 2)

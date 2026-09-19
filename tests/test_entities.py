@@ -11,7 +11,7 @@ def test_walking_onto_keycard_collects_it():
     events = step(session)
     assert keycard.collected
     assert session.player.has("keycard")
-    assert [e.kind for e in events] == ["pickup", "objective"]
+    assert {"pickup", "objective", "score"} <= {e.kind for e in events}
 
 
 def test_pickup_is_only_collected_once():

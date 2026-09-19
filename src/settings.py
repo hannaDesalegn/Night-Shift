@@ -98,3 +98,10 @@ FLASHLIGHT_RESTART_ENERGY = 15.0
 FLASHLIGHT_LOW = 25.0
 # Weakest beam, as a fraction of full range, just before the battery dies.
 FLASHLIGHT_MIN_REACH = 0.55
+
+# Scoring
+SCORE_PICKUP = {"keycard": 250, "component": 250, "battery": 50}
+SCORE_POWER = 500
+SCORE_ESCAPE = 1000
+SCORE_PER_SECOND_LEFT = 5
+SCORE_DAMAGE_PENALTY = 150

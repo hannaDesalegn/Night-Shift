@@ -32,6 +32,8 @@ class Session:
         self.enemy = Enemy(layout.patrol_points, start_index=settings.ENEMY_START_POST)
         self.elapsed = 0.0
         self.time_left = settings.TIME_LIMIT
+        self.score = 0
+        self.time_bonus = 0
         self.events = []
         # None while the run is in progress, otherwise the reason it ended.
         self.outcome = None
@@ -58,8 +60,12 @@ class Session:
             door.update(dt)
         if self.generator.update(dt):
             self.emit("power_on", self.generator.center, "Power restored")
+            self.add_score(settings.SCORE_POWER, self.generator.center)
         self._collect_pickups()
         if self.world.is_escape(self.player.pos):
+            self.add_score(settings.SCORE_ESCAPE)
+            self.time_bonus = int(self.time_left) * settings.SCORE_PER_SECOND_LEFT
+            self.add_score(self.time_bonus)
             self.finish("escaped")
             return self.events
         if controls.interact:
@@ -87,6 +93,10 @@ class Session:
             self.objective_index = index
             self.emit("objective", text=self.objective)
 
+    def add_score(self, points, pos=None):
+        self.score = max(0, self.score + points)
+        self.emit("score", pos, f"{points:+d}")
+
     def finish(self, outcome):
         self.outcome = outcome
         self.emit(outcome)
@@ -105,6 +115,7 @@ class Session:
             else:
                 self.player.inventory.add(pickup.kind)
             self.emit("pickup", pickup.pos, f"{pickup.name} acquired", pickup.kind)
+            self.add_score(settings.SCORE_PICKUP[pickup.kind], pickup.pos)
 
     def _tick_clock(self, dt):
         """Count down the shift; returns True if time ran out this frame."""
@@ -136,6 +147,7 @@ class Session:
         if self.player.take_damage(settings.ENEMY_DAMAGE, source=self.enemy.pos):
             self.enemy.stagger()
             self.emit("damage")
+            self.add_score(-settings.SCORE_DAMAGE_PENALTY)
             if not self.player.alive:
                 self.finish("caught")
 

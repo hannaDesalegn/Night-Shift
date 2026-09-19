@@ -114,3 +114,32 @@ def test_running_out_of_time_ends_the_run():
     step(session, seconds=1.0)
     assert session.outcome == "timeout"
     assert session.time_left == 0
+
+
+def test_collecting_items_awards_points():
+    session = Session()
+    keycard = next(p for p in session.pickups if p.kind == "keycard")
+    session.player.pos.update(keycard.pos)
+    step(session)
+    assert session.score == settings.SCORE_PICKUP["keycard"]
+
+
+def test_damage_costs_points_but_score_never_negative():
+    session = Session()
+    session.score = 100
+    place_enemy_on_player(session)
+    step(session)
+    assert session.score == 0
+
+
+def test_escape_awards_bonus_for_remaining_time():
+    session = Session()
+    session.score = 1000
+    session.time_left = 100.4
+    session.generator.state = Generator.ONLINE
+    session.exit_gate.open(session.world)
+    session.player.pos.update(session.exit_gate.center.x, session.exit_gate.rect.bottom + 30)
+    step(session)
+    expected_bonus = 100 * settings.SCORE_PER_SECOND_LEFT
+    assert session.time_bonus == expected_bonus
+    assert session.score == 1000 + settings.SCORE_ESCAPE + expected_bonus

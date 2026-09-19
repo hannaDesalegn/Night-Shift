@@ -114,3 +114,39 @@ def test_chasing_enemy_closes_distance():
     start = enemy.pos.distance_to(player.pos)
     simulate(enemy, world, 0.8, player=player)
     assert enemy.pos.distance_to(player.pos) < start - 80
+
+
+def hide_in_lobby(player):
+    player.pos.update(2.5 * TILE, 20.5 * TILE)
+
+
+def test_losing_sight_starts_search_at_last_known_position():
+    world, enemy, player = corridor_setup(200)
+    simulate(enemy, world, 0.5, player=player)
+    assert enemy.state is EnemyState.CHASE
+    hide_in_lobby(player)
+    alerts = [enemy.update(DT, world, player) for _ in range(int(1.5 / DT))]
+    assert "lost" in alerts
+    assert enemy.state is EnemyState.SEARCH
+    assert enemy.last_known.x > enemy.pos.x - 400
+
+
+def test_search_gives_up_and_returns_to_patrol():
+    world, enemy, player = corridor_setup(200)
+    simulate(enemy, world, 0.5, player=player)
+    hide_in_lobby(player)
+    alerts = [enemy.update(DT, world, player) for _ in range(int(10 / DT))]
+    assert "gave_up" in alerts
+    assert enemy.state is EnemyState.PATROL
+
+
+def test_search_sweep_stays_near_last_known_position():
+    world, enemy, player = corridor_setup(200)
+    simulate(enemy, world, 0.5, player=player)
+    hide_in_lobby(player)
+    far = 0
+    for _ in range(int(6 / DT)):
+        enemy.update(DT, world, player)
+        if enemy.state is EnemyState.SEARCH:
+            far = max(far, enemy.pos.distance_to(enemy.last_known))
+    assert far < TILE * 5

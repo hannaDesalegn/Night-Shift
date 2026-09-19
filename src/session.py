@@ -46,7 +46,7 @@ class Session:
         if alert == "spotted":
             self.emit("enemy_spotted", self.enemy.pos, "It has seen you")
         elif alert == "lost":
-            self.emit("enemy_lost", self.enemy.pos)
+            self.emit("enemy_searching", self.enemy.pos)
         for door in self.doors:
             door.update(dt)
         if self.generator.update(dt):

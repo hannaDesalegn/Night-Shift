@@ -1,11 +1,13 @@
 """The facility's night watcher: a single enemy with a small state machine."""
 
 import math
+import random
 from enum import Enum
 
 import pygame
 
 from src import settings
+from src.world import tile_center
 
 
 class EnemyState(Enum):
@@ -20,7 +22,7 @@ def _turn_toward(current, target, rate):
 
 
 class Enemy:
-    def __init__(self, patrol_points, start_index=0):
+    def __init__(self, patrol_points, start_index=0, seed=7):
         self.patrol_points = [pygame.Vector2(p) for p in patrol_points]
         self.patrol_index = start_index
         self.pos = self.patrol_points[start_index].copy()
@@ -34,6 +36,9 @@ class Enemy:
         self.last_known = None
         self.lost_time = 0.0
         self.repath = 0.0
+        self.search_time = 0.0
+        # Seeded so search sweeps are reproducible in tests.
+        self.rng = random.Random(seed)
 
     @property
     def box(self):
@@ -41,7 +46,7 @@ class Enemy:
         return self.pos.x - half, self.pos.y - half, self.size, self.size
 
     def update(self, dt, world, player=None):
-        """Advance one tick; returns "spotted" or "lost" when the chase starts or ends."""
+        """Advance one tick; returns "spotted", "lost" or "gave_up" on state changes."""
         sees = player is not None and self.can_detect(player, world)
         if self.state is EnemyState.PATROL:
             if self._notice(dt, sees):
@@ -50,8 +55,16 @@ class Enemy:
             self._patrol(dt, world)
         elif self.state is EnemyState.CHASE:
             if not self._chase(dt, world, player, sees):
-                self._begin_patrol()
+                self._begin_search(world)
                 return "lost"
+        elif self.state is EnemyState.SEARCH:
+            # Already on edge: any clear sighting restarts the chase immediately.
+            if sees:
+                self._begin_chase(player)
+                return "spotted"
+            if not self._search(dt, world):
+                self._begin_patrol()
+                return "gave_up"
         return None
 
     # --- perception -----------------------------------------------------
@@ -121,6 +134,43 @@ class Enemy:
         self.state = EnemyState.PATROL
         self.suspicion = 0.0
         self.path = []
+
+    def _begin_search(self, world):
+        self.state = EnemyState.SEARCH
+        self.search_time = settings.ENEMY_SEARCH_TIME
+        self.path = world.find_path(self.pos, self.last_known) or []
+        self.wait = 0.0
+
+    def _search(self, dt, world):
+        """Sweep the area around the last sighting; returns False when it gives up."""
+        self.search_time -= dt
+        if self.search_time <= 0:
+            return False
+        if self.wait > 0:
+            self.wait -= dt
+            self.velocity.update(0, 0)
+            self.facing += dt * 2.2
+            return True
+        if self._follow_path(dt, world, settings.ENEMY_SEARCH_SPEED):
+            self.wait = settings.ENEMY_SEARCH_PAUSE
+            self.path = self._search_spot(world)
+        return True
+
+    def _search_spot(self, world):
+        col, row = world.tile_of(self.last_known)
+        radius = settings.ENEMY_SEARCH_RADIUS
+        for _ in range(12):
+            spot = (
+                col + self.rng.randint(-radius, radius),
+                row + self.rng.randint(-radius, radius),
+            )
+            if world.is_solid(*spot):
+                continue
+            path = world.find_path(self.pos, tile_center(*spot))
+            # Keep the sweep local; a long detour means the spot is behind a wall.
+            if path and len(path) <= radius * 3:
+                return path
+        return []
 
     def _chase(self, dt, world, player, sees):
         """Pursue the player; returns False once the trail has gone cold."""

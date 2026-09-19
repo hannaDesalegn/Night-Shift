@@ -232,7 +232,7 @@ def draw_player(surface, player, camera):
     side = angle + math.pi / 2
     swing = math.sin(player.stride * 0.09) * 5 if player.moving else 0
 
-    pygame.draw.circle(surface, (0, 0, 0), center + (3, 4), 15)
+    surface.blit(_contact_shadow(32, 30), center - (13, 11))
     # Hands swing opposite each other while walking; the right hand holds the torch.
     left_hand = _polar(_polar(center, side, -12), angle, 3 - swing)
     right_hand = _polar(_polar(center, side, 11), angle, 8 + swing * 0.3)
@@ -310,3 +310,45 @@ def draw_pickup(surface, pickup, camera, t):
         fill = body.inflate(-4, -4)
         pygame.draw.rect(surface, color, fill, border_radius=1)
         pygame.draw.rect(surface, (200, 200, 200), (body.right, body.centery - 2, 3, 4))
+
+
+DOOR_STEEL = (74, 80, 92)
+DOOR_TRIM = (150, 120, 40)
+LIGHT_LOCKED = (230, 60, 50)
+LIGHT_READY = (240, 180, 60)
+LIGHT_OPEN = (90, 220, 120)
+
+
+def draw_door(surface, door, camera, t, can_open, highlighted):
+    rect = door.rect.move(-camera.offset)
+    surface.fill((18, 19, 24), rect)
+    shake = math.sin(t * 70) * 3 * (door.rattle / 0.35) if door.rattle else 0
+    # Each half slides into the wall on its own side.
+    half_w = rect.width / 2
+    slide = half_w * _ease_in_out(door.open_amount)
+    frame = rect.inflate(0, -14)
+    for sign in (-1, 1):
+        panel_w = half_w - slide
+        if panel_w <= 1:
+            continue
+        x = rect.x + shake if sign < 0 else rect.centerx + slide + shake
+        panel = pygame.Rect(round(x), frame.y, round(panel_w), frame.height)
+        surface.fill(DOOR_STEEL, panel)
+        pygame.draw.rect(surface, (48, 52, 62), panel, 2)
+        stripe = pygame.Rect(panel.x, panel.bottom - 7, panel.width, 5)
+        surface.fill(DOOR_TRIM, stripe)
+    if door.is_open:
+        color = LIGHT_OPEN
+    elif can_open:
+        color = LIGHT_READY
+    else:
+        color = LIGHT_LOCKED
+    speed = 8 if highlighted else 2.5
+    pulse = 0.6 + 0.4 * math.sin(t * speed)
+    lamp = (rect.centerx, rect.y + 4)
+    pygame.draw.circle(surface, color, lamp, 3)
+    draw_glow(surface, lamp, color, 26, (0.9 if highlighted else 0.5) * pulse)
+
+
+def _ease_in_out(x):
+    return x * x * (3 - 2 * x)

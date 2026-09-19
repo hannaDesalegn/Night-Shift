@@ -6,7 +6,13 @@ import pygame
 
 from src import settings
 from src.controls import read_input
-from src.renderer import Camera, build_world_surface, draw_pickup, draw_player
+from src.renderer import (
+    Camera,
+    build_world_surface,
+    draw_door,
+    draw_pickup,
+    draw_player,
+)
 from src.session import Session
 from src.ui import Fonts
 
@@ -72,6 +78,11 @@ class Game:
         self.screen.fill(settings.BG_COLOR)
         view = pygame.Rect(self.camera.offset, self.screen.get_size())
         self.screen.blit(self.world_surface, (0, 0), view)
+        session = self.session
+        target = session.interaction_target()
+        for door in session.doors:
+            can_open = session.requirement_met(door.requirement)
+            draw_door(self.screen, door, self.camera, self.time, can_open, door is target)
         for pickup in self.session.pickups:
             if not pickup.collected:
                 draw_pickup(self.screen, pickup, self.camera, self.time)

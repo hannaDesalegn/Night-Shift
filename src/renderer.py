@@ -1,5 +1,6 @@
 """World-space drawing: the pre-rendered facility and the camera that frames it."""
 
+import functools
 import math
 import random
 
@@ -250,3 +251,62 @@ def draw_player(surface, player, camera):
     pygame.draw.circle(surface, (64, 74, 96), center, 8)
     pygame.draw.circle(surface, (20, 24, 32), center, 8, 2)
     pygame.draw.circle(surface, (210, 190, 70), _polar(center, angle, 3), 2)
+
+
+PICKUP_COLORS = {
+    "keycard": (236, 168, 60),
+    "component": (80, 220, 230),
+    "battery": (120, 220, 110),
+}
+
+
+@functools.lru_cache(maxsize=64)
+def glow_texture(color, radius, strength):
+    """Radial glow with color premultiplied into RGB, meant for additive blits."""
+    tex = pygame.Surface((radius * 2, radius * 2))
+    for r in range(radius, 0, -2):
+        k = strength * (1 - r / radius) ** 2
+        pygame.draw.circle(tex, [int(c * k) for c in color], (radius, radius), r)
+    return tex
+
+
+def draw_glow(surface, center, color, radius, strength=1.0):
+    # Quantize strength so pulsing glows reuse a handful of cached textures.
+    tex = glow_texture(color, radius, round(strength, 1))
+    surface.blit(tex, (center[0] - radius, center[1] - radius), special_flags=pygame.BLEND_RGB_ADD)
+
+
+@functools.lru_cache(maxsize=8)
+def _contact_shadow(width, height):
+    shadow = pygame.Surface((width, height), pygame.SRCALPHA)
+    pygame.draw.ellipse(shadow, (0, 0, 0, 110), shadow.get_rect())
+    return shadow
+
+
+def draw_pickup(surface, pickup, camera, t):
+    color = PICKUP_COLORS[pickup.kind]
+    bob = math.sin(t * 3 + pickup.pos.x) * 3
+    center = camera.to_screen(pickup.pos) + (0, bob)
+    pulse = 0.75 + 0.25 * math.sin(t * 4 + pickup.pos.y)
+    draw_glow(surface, center, color, 34, 0.45 * pulse)
+    surface.blit(_contact_shadow(22, 8), (center.x - 11, center.y + 12 - bob))
+    if pickup.kind == "keycard":
+        card = pygame.Rect(0, 0, 22, 15)
+        card.center = center
+        pygame.draw.rect(surface, color, card, border_radius=3)
+        pygame.draw.rect(surface, (60, 40, 20), card.inflate(-2, -8).move(0, -2))
+        pygame.draw.rect(surface, (255, 240, 200), (card.x + 3, card.bottom - 5, 7, 2))
+    elif pickup.kind == "component":
+        body = pygame.Rect(0, 0, 12, 22)
+        body.center = center
+        pygame.draw.rect(surface, (40, 60, 70), body.inflate(4, 0), border_radius=3)
+        pygame.draw.rect(surface, color, body.inflate(-2, -8), border_radius=2)
+        for y in (body.top, body.bottom - 4):
+            pygame.draw.rect(surface, (180, 190, 200), (body.x - 1, y, 14, 4), border_radius=1)
+    else:
+        body = pygame.Rect(0, 0, 18, 11)
+        body.center = center
+        pygame.draw.rect(surface, (30, 40, 30), body, border_radius=2)
+        fill = body.inflate(-4, -4)
+        pygame.draw.rect(surface, color, fill, border_radius=1)
+        pygame.draw.rect(surface, (200, 200, 200), (body.right, body.centery - 2, 3, 4))

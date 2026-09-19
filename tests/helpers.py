@@ -22,3 +22,7 @@ def step(session, controls=None, seconds=DT):
     for _ in range(max(1, round(seconds / DT))):
         events += session.update(DT, controls or idle())
     return events
+
+
+def walk(x, y):
+    return InputState(move=pygame.Vector2(x, y).normalize())

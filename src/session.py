@@ -21,9 +21,13 @@ class Session:
         self.generator = Generator(layout.generator_tiles)
         self.elapsed = 0.0
         self.events = []
+        # None while the run is in progress, otherwise the reason it ended.
+        self.outcome = None
 
     def update(self, dt, controls):
         self.events = []
+        if self.outcome:
+            return self.events
         self.elapsed += dt
         self.player.update(dt, controls.move, self.world)
         for door in self.doors:
@@ -31,11 +35,18 @@ class Session:
         if self.generator.update(dt):
             self.emit("power_on", self.generator.center, "Power restored")
         self._collect_pickups()
+        if self.world.is_escape(self.player.pos):
+            self.finish("escaped")
+            return self.events
         if controls.interact:
             target = self.interaction_target()
             if target is not None:
                 self._interact(target)
         return self.events
+
+    def finish(self, outcome):
+        self.outcome = outcome
+        self.emit(outcome)
 
     def emit(self, kind, pos=None, text="", item=""):
         pos = self.player.pos.copy() if pos is None else pos.copy()

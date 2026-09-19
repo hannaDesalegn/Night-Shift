@@ -133,4 +133,12 @@ class Game:
 
     def _beam(self):
         player = self.session.player
-        return player.pos, player.facing, settings.FLASHLIGHT_RANGE, settings.FLASHLIGHT_COLOR
+        intensity = player.beam_intensity(self.time)
+        if intensity <= 0:
+            return None
+        reach = (
+            settings.FLASHLIGHT_MIN_REACH
+            + (1 - settings.FLASHLIGHT_MIN_REACH) * player.energy_fraction
+        )
+        radius = int(settings.FLASHLIGHT_RANGE * reach)
+        return player.pos, player.facing, radius, scale_color(settings.FLASHLIGHT_COLOR, intensity)

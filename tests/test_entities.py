@@ -111,3 +111,13 @@ def test_power_allows_exit_gate_to_open():
     session.player.pos.update(gate.center.x, gate.rect.top - 30)
     step(session, press_interact())
     assert gate.is_open
+
+
+def test_battery_recharges_flashlight():
+    session = Session()
+    session.player.energy = 10
+    battery = pickup_of(session, "battery")
+    session.player.pos.update(battery.pos)
+    step(session)
+    assert session.player.energy > 10 + settings.BATTERY_CHARGE - 1
+    assert "battery" not in session.player.inventory

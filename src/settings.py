@@ -83,3 +83,13 @@ FLASHLIGHT_RANGE = 390
 FLASHLIGHT_HALF_ANGLE = 0.5
 FLASHLIGHT_RAYS = 48
 FLASHLIGHT_COLOR = (255, 238, 205)
+FLASHLIGHT_MAX_ENERGY = 100.0
+# Roughly 90 seconds of continuous light from a full charge.
+FLASHLIGHT_DRAIN = 1.1
+# Slow trickle while switched off, so darkness is a choice rather than a dead end.
+FLASHLIGHT_RECHARGE = 0.6
+# After running dry it must recover this much before it will switch on again.
+FLASHLIGHT_RESTART_ENERGY = 15.0
+FLASHLIGHT_LOW = 25.0
+# Weakest beam, as a fraction of full range, just before the battery dies.
+FLASHLIGHT_MIN_REACH = 0.55

@@ -81,6 +81,7 @@ def test_enemy_hears_moving_player_close_behind():
 
 def test_flashlight_extends_detection_range():
     world, enemy, player = corridor_setup(400)
+    player.flashlight_on = False
     assert not enemy.can_detect(player, world)
     player.flashlight_on = True
     assert enemy.can_detect(player, world)

@@ -117,3 +117,56 @@ def test_health_never_goes_negative():
     player = Player((100, 100))
     player.take_damage(settings.PLAYER_MAX_HEALTH * 3)
     assert player.health == 0 and not player.alive
+
+
+def drain(player, seconds):
+    for _ in range(int(seconds / DT)):
+        status = player.update_flashlight(DT)
+        if status:
+            yield status
+
+
+def test_flashlight_drains_while_on_and_recharges_while_off():
+    player = Player((0, 0))
+    list(drain(player, 10))
+    drained = player.energy
+    assert drained < settings.FLASHLIGHT_MAX_ENERGY
+    player.toggle_flashlight()
+    list(drain(player, 10))
+    assert player.energy > drained
+
+
+def test_flashlight_warns_once_when_low():
+    player = Player((0, 0))
+    player.energy = settings.FLASHLIGHT_LOW + 1
+    assert list(drain(player, 3)) == ["low"]
+
+
+def test_empty_flashlight_switches_off_and_cannot_restart_immediately():
+    player = Player((0, 0))
+    player.energy = 0.5
+    assert list(drain(player, 1)) == ["empty"]
+    assert not player.flashlight_on
+    assert not player.toggle_flashlight()
+    assert not player.flashlight_on
+
+
+def test_flashlight_restarts_after_recovering():
+    player = Player((0, 0))
+    player.energy = 0.1
+    list(drain(player, 0.5))
+    player.recharge(settings.FLASHLIGHT_RESTART_ENERGY)
+    assert player.toggle_flashlight()
+    assert player.flashlight_on
+
+
+def test_beam_weakens_with_energy():
+    full, weak = Player((0, 0)), Player((0, 0))
+    weak.energy = settings.FLASHLIGHT_LOW + 5
+    assert weak.beam_intensity(0.0) < full.beam_intensity(0.0)
+
+
+def test_beam_is_dark_when_off():
+    player = Player((0, 0))
+    player.toggle_flashlight()
+    assert player.beam_intensity(1.0) == 0.0

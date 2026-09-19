@@ -42,6 +42,7 @@ class Session:
             return self.events
         self.elapsed += dt
         self.player.update(dt, controls.move, self.world)
+        self._update_flashlight(dt, controls.toggle_flashlight)
         alert = self.enemy.update(dt, self.world, self.player)
         if alert == "spotted":
             self.emit("enemy_spotted", self.enemy.pos, "It has seen you")
@@ -96,9 +97,24 @@ class Session:
             if pickup.collected or not pickup.touches(self.player.pos, settings.PICKUP_RADIUS):
                 continue
             pickup.collected = True
-            if pickup.kind != "battery":
+            if pickup.kind == "battery":
+                self.player.recharge(settings.BATTERY_CHARGE)
+            else:
                 self.player.inventory.add(pickup.kind)
             self.emit("pickup", pickup.pos, f"{pickup.name} acquired", pickup.kind)
+
+    def _update_flashlight(self, dt, toggle):
+        player = self.player
+        if toggle:
+            if player.toggle_flashlight():
+                self.emit("flashlight_on" if player.flashlight_on else "flashlight_off")
+            else:
+                self.emit("flashlight_dead", text="Flashlight is recharging")
+        status = player.update_flashlight(dt)
+        if status == "empty":
+            self.emit("flashlight_empty", text="Flashlight battery died")
+        elif status == "low":
+            self.emit("flashlight_low", text="Flashlight battery low")
 
     def _check_contact(self):
         if not self.enemy.touches(self.player):

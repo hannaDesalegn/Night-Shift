@@ -87,7 +87,7 @@ class Enemy:
         chasing = self.state is EnemyState.CHASE
         if chasing:
             reach = settings.ENEMY_CHASE_SIGHT_RANGE
-        elif getattr(player, "flashlight_on", False):
+        elif player.flashlight_on:
             reach = settings.ENEMY_LIT_SIGHT_RANGE
         else:
             reach = settings.ENEMY_SIGHT_RANGE

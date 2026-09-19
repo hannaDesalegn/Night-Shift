@@ -21,6 +21,9 @@ class Player:
         self.health = settings.PLAYER_MAX_HEALTH
         self.inventory = set()
         self.invulnerable = 0.0
+        self.flashlight_on = True
+        self.energy = settings.FLASHLIGHT_MAX_ENERGY
+        self.depleted = False
         # Accumulated distance, drives the walk animation.
         self.stride = 0.0
 
@@ -62,6 +65,61 @@ class Player:
             goal = math.atan2(move.y, move.x)
             rate = min(1.0, settings.PLAYER_TURN_RATE * dt)
             self.facing = _approach_angle(self.facing, goal, rate)
+
+    # --- flashlight ------------------------------------------------------
+
+    @property
+    def energy_fraction(self):
+        return self.energy / settings.FLASHLIGHT_MAX_ENERGY
+
+    @property
+    def flashlight_low(self):
+        return self.energy <= settings.FLASHLIGHT_LOW
+
+    def toggle_flashlight(self):
+        """Returns True if the flashlight changed state."""
+        if self.flashlight_on:
+            self.flashlight_on = False
+            return True
+        if self.depleted:
+            return False
+        self.flashlight_on = True
+        return True
+
+    def update_flashlight(self, dt):
+        """Drain or recharge; returns "empty" or "low" on the frame a threshold is crossed."""
+        before = self.energy
+        if self.flashlight_on:
+            self.energy = max(0.0, self.energy - settings.FLASHLIGHT_DRAIN * dt)
+        else:
+            self.energy = min(
+                settings.FLASHLIGHT_MAX_ENERGY, self.energy + settings.FLASHLIGHT_RECHARGE * dt
+            )
+        if self.depleted and self.energy >= settings.FLASHLIGHT_RESTART_ENERGY:
+            self.depleted = False
+        if self.flashlight_on and self.energy <= 0:
+            self.flashlight_on = False
+            self.depleted = True
+            return "empty"
+        if before > settings.FLASHLIGHT_LOW >= self.energy:
+            return "low"
+        return None
+
+    def recharge(self, amount):
+        self.energy = min(settings.FLASHLIGHT_MAX_ENERGY, self.energy + amount)
+        if self.energy >= settings.FLASHLIGHT_RESTART_ENERGY:
+            self.depleted = False
+
+    def beam_intensity(self, t):
+        """0..1 light output; sputters irregularly once the battery is low."""
+        if not self.flashlight_on:
+            return 0.0
+        level = 0.6 + 0.4 * self.energy_fraction
+        if self.flashlight_low:
+            noise = math.sin(t * 37.0) + math.sin(t * 23.3 + 1.7) + math.sin(t * 5.1)
+            if noise > 1.6:
+                level *= 0.2
+        return level
 
     def take_damage(self, amount, source=None):
         """Apply a hit unless still recovering from the last one; returns True if it landed."""

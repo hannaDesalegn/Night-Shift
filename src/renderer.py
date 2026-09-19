@@ -1,0 +1,220 @@
+"""World-space drawing: the pre-rendered facility and the camera that frames it."""
+
+import random
+
+import pygame
+
+from src import settings
+from src.settings import TILE
+from src.world import ROOMS
+
+FLOOR_TINTS = {
+    "OFFICE": (34, 31, 40),
+    "STORAGE": (31, 31, 30),
+    "GENERATOR ROOM": (29, 31, 34),
+    "CORRIDOR": (30, 32, 37),
+    "LOBBY": (32, 33, 38),
+    "MAINTENANCE": (27, 31, 33),
+    "EXIT BAY": (30, 31, 34),
+    "LOADING DOCK": (22, 22, 24),
+}
+DEFAULT_FLOOR = (28, 30, 35)
+WALL_TOP = (52, 56, 68)
+WALL_EDGE = (78, 84, 100)
+WALL_FACE = (34, 37, 46)
+WALL_FACE_HEIGHT = 12
+SHADOW = (0, 0, 0, 90)
+
+
+def _shade(color, amount):
+    return tuple(max(0, min(255, c + amount)) for c in color)
+
+
+class Camera:
+    def __init__(self, world_size, view_size=(settings.SCREEN_WIDTH, settings.SCREEN_HEIGHT)):
+        self.world_w, self.world_h = world_size
+        self.view_w, self.view_h = view_size
+        self.pos = pygame.Vector2()
+
+    def _clamped(self, target):
+        x = min(max(target.x - self.view_w / 2, 0), self.world_w - self.view_w)
+        y = min(max(target.y - self.view_h / 2, 0), self.world_h - self.view_h)
+        return pygame.Vector2(x, y)
+
+    def snap(self, target):
+        self.pos = self._clamped(pygame.Vector2(target))
+
+    def follow(self, target, dt):
+        goal = self._clamped(pygame.Vector2(target))
+        # Frame-rate independent exponential smoothing.
+        self.pos += (goal - self.pos) * min(1.0, settings.CAMERA_SMOOTHING * dt)
+
+    @property
+    def offset(self):
+        return pygame.Vector2(round(self.pos.x), round(self.pos.y))
+
+    def to_screen(self, world_pos):
+        return pygame.Vector2(world_pos) - self.offset
+
+
+def build_world_surface(world, fonts):
+    """Draw every static tile once; the result is blitted through the camera each frame."""
+    surface = pygame.Surface(world.pixel_size).convert()
+    rng = random.Random(1987)
+    _draw_floors(surface, world, rng)
+    _draw_room_labels(surface, fonts)
+    _draw_shadows(surface, world)
+    for row in range(world.height):
+        for col in range(world.cols):
+            ch = world.char_at(col, row)
+            rect = pygame.Rect(col * TILE, row * TILE, TILE, TILE)
+            painter = _TILE_PAINTERS.get(ch)
+            if painter:
+                painter(surface, rect, world, col, row, rng)
+    return surface
+
+
+def _floor_color(world, col, row):
+    room = world.room_at(((col + 0.5) * TILE, (row + 0.5) * TILE))
+    return FLOOR_TINTS.get(room, DEFAULT_FLOOR), room
+
+
+def _draw_floors(surface, world, rng):
+    for row in range(world.height):
+        for col in range(world.cols):
+            rect = pygame.Rect(col * TILE, row * TILE, TILE, TILE)
+            base, room = _floor_color(world, col, row)
+            if room == "LOBBY" and (col + row) % 2:
+                base = _shade(base, 4)
+            surface.fill(base, rect)
+            if room == "LOADING DOCK":
+                _paint_asphalt(surface, rect, rng)
+                continue
+            pygame.draw.rect(surface, _shade(base, -7), rect, 1)
+            if room == "MAINTENANCE":
+                grate = _shade(base, -5)
+                for x in range(rect.x + 8, rect.right, 8):
+                    pygame.draw.line(surface, grate, (x, rect.y + 2), (x, rect.bottom - 3))
+            for _ in range(3):
+                spot = (rect.x + rng.randrange(TILE), rect.y + rng.randrange(TILE))
+                surface.set_at(spot, _shade(base, rng.choice((-6, 6))))
+
+
+def _paint_asphalt(surface, rect, rng):
+    for _ in range(10):
+        spot = (rect.x + rng.randrange(TILE), rect.y + rng.randrange(TILE))
+        surface.set_at(spot, _shade((22, 22, 24), rng.randrange(-5, 9)))
+
+
+def _draw_room_labels(surface, fonts):
+    for name, (x, y, w, h) in ROOMS.items():
+        label = fonts.stencil.render(name, True, (255, 255, 255))
+        label.set_alpha(16)
+        area = pygame.Rect(x * TILE, y * TILE, w * TILE, h * TILE)
+        pos = label.get_rect(midbottom=(area.centerx, area.bottom - 10))
+        surface.blit(label, pos)
+
+
+def _draw_shadows(surface, world):
+    shadow = pygame.Surface((TILE, TILE), pygame.SRCALPHA)
+    shadow.fill(SHADOW)
+    for row in range(world.height):
+        for col in range(world.cols):
+            if world.is_solid(col, row) and world.char_at(col, row) != "#":
+                surface.blit(shadow, (col * TILE + 5, row * TILE + 7))
+
+
+def _merged_rect(rect, world, col, row, inset_x, inset_y):
+    """Inset a tile only on sides that do not continue the same furniture piece."""
+    ch = world.char_at(col, row)
+    left = 0 if world.char_at(col - 1, row) == ch else inset_x
+    right = 0 if world.char_at(col + 1, row) == ch else inset_x
+    top = 0 if world.char_at(col, row - 1) == ch else inset_y
+    bottom = 0 if world.char_at(col, row + 1) == ch else inset_y
+    return pygame.Rect(rect.x + left, rect.y + top, TILE - left - right, TILE - top - bottom)
+
+
+def _paint_wall(surface, rect, world, col, row, rng):
+    surface.fill(WALL_TOP, rect)
+    # Highlight edges that face open floor so rooms read clearly from above.
+    if world.char_at(col, row - 1) != "#":
+        pygame.draw.line(surface, WALL_EDGE, rect.topleft, rect.topright, 2)
+    if world.char_at(col - 1, row) != "#":
+        pygame.draw.line(surface, WALL_EDGE, rect.topleft, rect.bottomleft, 2)
+    if world.char_at(col + 1, row) != "#":
+        pygame.draw.line(surface, _shade(WALL_TOP, -12), rect.topright, rect.bottomright, 2)
+    if world.char_at(col, row + 1) != "#":
+        face = pygame.Rect(rect.x, rect.bottom - WALL_FACE_HEIGHT, TILE, WALL_FACE_HEIGHT)
+        surface.fill(WALL_FACE, face)
+        pygame.draw.line(surface, _shade(WALL_FACE, -10), face.bottomleft, face.bottomright, 2)
+    if rng.random() < 0.15:
+        crack = (rect.x + rng.randrange(8, 40), rect.y + rng.randrange(8, 30))
+        pygame.draw.line(surface, _shade(WALL_TOP, -10), crack, (crack[0] + 6, crack[1] + 4))
+
+
+def _paint_desk(surface, rect, world, col, row, rng):
+    top = _merged_rect(rect, world, col, row, 3, 5)
+    surface.fill((78, 60, 46), top)
+    surface.fill((96, 76, 56), _merged_rect(rect, world, col, row, 6, 8))
+    if (col + row) % 2 == 0:
+        monitor = pygame.Rect(0, 0, 18, 12)
+        monitor.center = top.center
+        pygame.draw.rect(surface, (20, 24, 30), monitor, border_radius=2)
+        pygame.draw.rect(surface, (40, 70, 80), monitor.inflate(-4, -4))
+    else:
+        paper = pygame.Rect(top.x + 8, top.y + 6, 12, 15)
+        pygame.draw.rect(surface, (170, 170, 160), paper)
+
+
+def _paint_shelf(surface, rect, world, col, row, rng):
+    frame = _merged_rect(rect, world, col, row, 3, 6)
+    surface.fill((58, 62, 70), frame)
+    pygame.draw.line(surface, (40, 43, 50), frame.topleft, frame.topright, 2)
+    pygame.draw.line(surface, (40, 43, 50), frame.bottomleft, frame.bottomright, 2)
+    x = frame.x + 4
+    while x < frame.right - 8:
+        w = rng.randrange(7, 13)
+        color = rng.choice(((110, 86, 56), (92, 74, 50), (70, 84, 96), (120, 110, 90)))
+        pygame.draw.rect(surface, color, (x, frame.y + 5, w, frame.height - 10))
+        x += w + 2
+
+
+def _paint_crates(surface, rect, world, col, row, rng):
+    box = rect.inflate(-6, -6)
+    pygame.draw.rect(surface, (96, 74, 46), box, border_radius=2)
+    pygame.draw.rect(surface, (64, 48, 30), box, 3, border_radius=2)
+    pygame.draw.line(surface, (70, 52, 32), box.topleft, box.bottomright, 3)
+    pygame.draw.line(surface, (70, 52, 32), box.topright, box.bottomleft, 3)
+
+
+def _paint_machine(surface, rect, world, col, row, rng):
+    body = _merged_rect(rect, world, col, row, 3, 3)
+    surface.fill((40, 58, 60), body)
+    pygame.draw.rect(surface, (58, 80, 82), rect.inflate(-10, -10), 2, border_radius=2)
+    for corner in (body.topleft, body.topright, body.bottomleft, body.bottomright):
+        rivet = pygame.Vector2(corner) + (pygame.Vector2(body.center) - corner) * 0.2
+        pygame.draw.circle(surface, (90, 110, 110), rivet, 2)
+    if rng.random() < 0.4:
+        pygame.draw.circle(surface, (30, 44, 46), body.center, 8)
+        pygame.draw.circle(surface, (80, 100, 100), body.center, 8, 2)
+
+
+def _paint_pillar(surface, rect, world, col, row, rng):
+    pygame.draw.rect(surface, (60, 64, 74), rect.inflate(-6, -6), border_radius=4)
+    pygame.draw.rect(surface, (80, 86, 98), rect.inflate(-14, -14), border_radius=3)
+
+
+def _paint_dock(surface, rect, world, col, row, rng):
+    if col % 4 == 0:
+        pygame.draw.line(surface, (120, 104, 40), rect.midtop, rect.midbottom, 3)
+
+
+_TILE_PAINTERS = {
+    "#": _paint_wall,
+    "T": _paint_desk,
+    "S": _paint_shelf,
+    "=": _paint_crates,
+    "M": _paint_machine,
+    "O": _paint_pillar,
+    "Z": _paint_dock,
+}

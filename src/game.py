@@ -5,6 +5,9 @@ from enum import Enum, auto
 import pygame
 
 from src import settings
+from src.renderer import Camera, build_world_surface
+from src.ui import Fonts
+from src.world import World
 
 
 class State(Enum):
@@ -21,8 +24,12 @@ class Game:
         pygame.display.set_caption(settings.TITLE)
         self.screen = pygame.display.set_mode((settings.SCREEN_WIDTH, settings.SCREEN_HEIGHT))
         self.clock = pygame.time.Clock()
-        self.font = pygame.font.Font(None, 64)
-        self.state = State.MENU
+        self.fonts = Fonts()
+        self.world = World()
+        self.world_surface = build_world_surface(self.world, self.fonts)
+        self.camera = Camera(self.world.pixel_size)
+        self.camera.snap(self.world.layout.player_start)
+        self.state = State.PLAYING
         self.running = True
 
     def run(self):
@@ -48,6 +55,6 @@ class Game:
 
     def draw(self):
         self.screen.fill(settings.BG_COLOR)
-        label = self.font.render(settings.TITLE.upper(), True, settings.TEXT_COLOR)
-        self.screen.blit(label, label.get_rect(center=self.screen.get_rect().center))
+        view = pygame.Rect(self.camera.offset, self.screen.get_size())
+        self.screen.blit(self.world_surface, (0, 0), view)
         pygame.display.flip()

@@ -17,3 +17,7 @@ DANGER = (222, 64, 64)
 
 # World
 TILE = 48
+CAMERA_SMOOTHING = 8.0
+
+# Fonts: first installed match wins, otherwise pygame's bundled font.
+FONT_NAMES = "consolas,dejavusansmono,menlo,couriernew"

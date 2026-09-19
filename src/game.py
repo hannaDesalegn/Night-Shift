@@ -10,6 +10,7 @@ from src.renderer import (
     Camera,
     build_world_surface,
     draw_door,
+    draw_enemy,
     draw_generator,
     draw_pickup,
     draw_player,
@@ -89,4 +90,5 @@ class Game:
             if not pickup.collected:
                 draw_pickup(self.screen, pickup, self.camera, self.time)
         draw_player(self.screen, self.session.player, self.camera)
+        draw_enemy(self.screen, session.enemy, self.camera, self.time)
         pygame.display.flip()

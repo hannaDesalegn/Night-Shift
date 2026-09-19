@@ -1,6 +1,7 @@
 """Rules for a single run: pickups, interactions, objectives and outcome."""
 
 from src import settings
+from src.enemy import Enemy
 from src.entities import Door, Event, Generator, Pickup
 from src.player import Player
 from src.utils import distance_to_rect
@@ -28,6 +29,7 @@ class Session:
         self.exit_gate = Door(layout.door_tiles["X"], "power", "Exit gate", self.world)
         self.doors = [self.maintenance_door, self.exit_gate]
         self.generator = Generator(layout.generator_tiles)
+        self.enemy = Enemy(layout.patrol_points, start_index=settings.ENEMY_START_POST)
         self.elapsed = 0.0
         self.events = []
         # None while the run is in progress, otherwise the reason it ended.
@@ -40,6 +42,7 @@ class Session:
             return self.events
         self.elapsed += dt
         self.player.update(dt, controls.move, self.world)
+        self.enemy.update(dt, self.world)
         for door in self.doors:
             door.update(dt)
         if self.generator.update(dt):

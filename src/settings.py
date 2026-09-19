@@ -37,3 +37,12 @@ BATTERY_CHARGE = 45
 DOOR_OPEN_TIME = 0.7
 DOOR_RATTLE_TIME = 0.35
 GENERATOR_START_TIME = 3.0
+
+# Enemy
+ENEMY_SIZE = 30
+# Index into the patrol route; the generator room keeps it away from the lobby start.
+ENEMY_START_POST = 4
+ENEMY_PATROL_SPEED = 85
+ENEMY_TURN_RATE = 6.0
+ENEMY_PATROL_PAUSE = 1.2
+ENEMY_WAYPOINT_REACHED = 6

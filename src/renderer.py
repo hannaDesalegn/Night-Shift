@@ -395,3 +395,35 @@ def draw_generator(surface, generator, camera, t):
     lamp = (rect.right - 14, rect.y + 12)
     pygame.draw.circle(surface, indicator, lamp, 4)
     draw_glow(surface, lamp, indicator, 22, 0.6)
+
+
+ENEMY_BODY = (16, 12, 22)
+ENEMY_RIM = (74, 42, 96)
+ENEMY_EYES = {"patrol": (255, 190, 90), "search": (255, 140, 60), "chase": (255, 50, 50)}
+
+
+def draw_enemy(surface, enemy, camera, t):
+    center = camera.to_screen(enemy.pos)
+    surface.blit(_contact_shadow(40, 30), center - (18, 9))
+    breathe = math.sin(t * 3.1) * 1.5
+    # Trailing wisps orbit the body to keep the silhouette unsettled.
+    for i in range(5):
+        a = t * 1.7 + i * math.tau / 5
+        wisp = _polar(center, a, 14 + math.sin(t * 4 + i) * 3)
+        pygame.draw.circle(surface, ENEMY_RIM, wisp, 5)
+    pygame.draw.circle(surface, ENEMY_RIM, center, 17 + breathe)
+    pygame.draw.circle(surface, ENEMY_BODY, center, 15 + breathe)
+    head = _polar(center, enemy.facing, 5)
+    pygame.draw.circle(surface, (8, 6, 12), head, 10)
+    draw_enemy_eyes(surface, enemy, camera)
+
+
+def draw_enemy_eyes(surface, enemy, camera):
+    """Eyes are drawn after the darkness pass too, so they glow even when unlit."""
+    center = camera.to_screen(enemy.pos)
+    color = ENEMY_EYES[enemy.state.value]
+    head = _polar(center, enemy.facing, 9)
+    for side in (-1, 1):
+        eye = _polar(head, enemy.facing + side * math.pi / 2, 4)
+        pygame.draw.circle(surface, color, eye, 2)
+    draw_glow(surface, head, color, 26, 0.55)

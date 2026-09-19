@@ -6,11 +6,19 @@ import pygame
 
 from src import settings
 from src.controls import read_input
+from src.lighting import Lighting, scale_color
 from src.renderer import (
+    LIGHT_LOCKED,
+    LIGHT_OPEN,
+    PICKUP_COLORS,
     Camera,
     build_world_surface,
+    door_lamp_pos,
     draw_door,
+    draw_door_lamp,
+    draw_emergency_light,
     draw_enemy,
+    draw_enemy_eyes,
     draw_generator,
     draw_pickup,
     draw_player,
@@ -44,6 +52,7 @@ class Game:
         # The static layer never changes between runs, so build it only once.
         if not hasattr(self, "world_surface"):
             self.world_surface = build_world_surface(self.session.world, self.fonts)
+        self.lighting = Lighting(self.session.world)
         self.camera = Camera(self.session.world.pixel_size)
         self.camera.snap(self.session.player.pos)
         self.state = State.PLAYING
@@ -78,17 +87,50 @@ class Game:
 
     def draw(self):
         self.screen.fill(settings.BG_COLOR)
-        view = pygame.Rect(self.camera.offset, self.screen.get_size())
+        self.draw_world()
+        pygame.display.flip()
+
+    def draw_world(self):
+        session, camera, t = self.session, self.camera, self.time
+        view = pygame.Rect(camera.offset, self.screen.get_size())
         self.screen.blit(self.world_surface, (0, 0), view)
-        session = self.session
+        for door in session.doors:
+            draw_door(self.screen, door, camera, t)
+        draw_generator(self.screen, session.generator, camera, t)
+        for pickup in session.pickups:
+            if not pickup.collected:
+                draw_pickup(self.screen, pickup, camera, t)
+        draw_player(self.screen, session.player, camera)
+        draw_enemy(self.screen, session.enemy, camera, t)
+
+        self.lighting.render(self.screen, camera, session.power_on, self._lights(), self._beam())
+
+        # Emissive details stay readable through the darkness.
         target = session.interaction_target()
         for door in session.doors:
             can_open = session.requirement_met(door.requirement)
-            draw_door(self.screen, door, self.camera, self.time, can_open, door is target)
-        draw_generator(self.screen, session.generator, self.camera, self.time)
-        for pickup in self.session.pickups:
+            draw_door_lamp(self.screen, door, camera, t, can_open, door is target)
+        if not session.power_on:
+            for pos in session.world.layout.emergency_lights:
+                draw_emergency_light(self.screen, pos, camera, t)
+        draw_enemy_eyes(self.screen, session.enemy, camera)
+
+    def _lights(self):
+        session = self.session
+        lights = [(session.player.pos, settings.PLAYER_GLOW_RADIUS, settings.PLAYER_GLOW_COLOR)]
+        for pickup in session.pickups:
             if not pickup.collected:
-                draw_pickup(self.screen, pickup, self.camera, self.time)
-        draw_player(self.screen, self.session.player, self.camera)
-        draw_enemy(self.screen, session.enemy, self.camera, self.time)
-        pygame.display.flip()
+                lights.append((pickup.pos, 60, scale_color(PICKUP_COLORS[pickup.kind], 0.45)))
+        for door in session.doors:
+            color = LIGHT_OPEN if door.is_open else LIGHT_LOCKED
+            lights.append((door_lamp_pos(door), 44, scale_color(color, 0.35)))
+        generator = session.generator
+        if generator.state == generator.ONLINE:
+            lights.append((generator.center, 200, (40, 150, 170)))
+        elif generator.state == generator.STARTING:
+            lights.append((generator.center, 120, scale_color((60, 160, 180), generator.progress)))
+        return lights
+
+    def _beam(self):
+        player = self.session.player
+        return player.pos, player.facing, settings.FLASHLIGHT_RANGE, settings.FLASHLIGHT_COLOR

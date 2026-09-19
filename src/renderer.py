@@ -322,7 +322,7 @@ LIGHT_READY = (240, 180, 60)
 LIGHT_OPEN = (90, 220, 120)
 
 
-def draw_door(surface, door, camera, t, can_open, highlighted):
+def draw_door(surface, door, camera, t):
     rect = door.rect.move(-camera.offset)
     surface.fill((18, 19, 24), rect)
     shake = math.sin(t * 70) * 3 * (door.rattle / 0.35) if door.rattle else 0
@@ -340,17 +340,32 @@ def draw_door(surface, door, camera, t, can_open, highlighted):
         pygame.draw.rect(surface, (48, 52, 62), panel, 2)
         stripe = pygame.Rect(panel.x, panel.bottom - 7, panel.width, 5)
         surface.fill(DOOR_TRIM, stripe)
+
+
+def draw_door_lamp(surface, door, camera, t, can_open, highlighted):
     if door.is_open:
         color = LIGHT_OPEN
     elif can_open:
         color = LIGHT_READY
     else:
         color = LIGHT_LOCKED
+    # The lamp pulses faster when the player is close enough to use the door.
     speed = 8 if highlighted else 2.5
     pulse = 0.6 + 0.4 * math.sin(t * speed)
-    lamp = (rect.centerx, rect.y + 4)
+    lamp = door_lamp_pos(door) - camera.offset
     pygame.draw.circle(surface, color, lamp, 3)
     draw_glow(surface, lamp, color, 26, (0.9 if highlighted else 0.5) * pulse)
+
+
+def door_lamp_pos(door):
+    return pygame.Vector2(door.rect.centerx, door.rect.y + 4)
+
+
+def draw_emergency_light(surface, pos, camera, t):
+    pulse = 0.5 + 0.5 * math.sin(t * 1.8 + pos[0] * 0.01)
+    center = camera.to_screen(pos)
+    draw_glow(surface, center, (200, 30, 24), 120, 0.25 + 0.2 * pulse)
+    pygame.draw.circle(surface, (255, 80, 60), center, 3)
 
 
 def _ease_in_out(x):
@@ -418,11 +433,10 @@ def draw_enemy(surface, enemy, camera, t):
     pygame.draw.circle(surface, ENEMY_BODY, center, 15 + breathe)
     head = _polar(center, enemy.facing, 5)
     pygame.draw.circle(surface, (8, 6, 12), head, 10)
-    draw_enemy_eyes(surface, enemy, camera)
 
 
 def draw_enemy_eyes(surface, enemy, camera):
-    """Eyes are drawn after the darkness pass too, so they glow even when unlit."""
+    """Drawn after the darkness pass so the eyes stay visible in unlit areas."""
     center = camera.to_screen(enemy.pos)
     color = ENEMY_EYES[enemy.state.value]
     head = _polar(center, enemy.facing, 9)

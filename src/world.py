@@ -89,6 +89,9 @@ class World:
         self.pixel_size = (self.cols * TILE, self.height * TILE)
         # Tiles temporarily blocked by closed doors.
         self.closed = set()
+        # Boolean grids keep the per-cell checks in ray casts and collision cheap.
+        self._solid = [[ch in SOLID_TILES for ch in line] for line in rows]
+        self._opaque = [[ch in OPAQUE_TILES for ch in line] for line in rows]
         self.layout = self._parse()
 
     def _parse(self):
@@ -134,10 +137,14 @@ class World:
         return "#"
 
     def is_solid(self, col, row):
-        return self.char_at(col, row) in SOLID_TILES or (col, row) in self.closed
+        if 0 <= row < self.height and 0 <= col < self.cols:
+            return self._solid[row][col]
+        return True
 
     def is_opaque(self, col, row):
-        return self.char_at(col, row) in OPAQUE_TILES or (col, row) in self.closed
+        if 0 <= row < self.height and 0 <= col < self.cols:
+            return self._opaque[row][col]
+        return True
 
     def tile_of(self, pos):
         return int(pos[0] // TILE), int(pos[1] // TILE)
@@ -153,10 +160,14 @@ class World:
         return self.tile_of(pos) in self.layout.escape_tiles
 
     def set_closed(self, tiles, closed):
-        if closed:
-            self.closed.update(tiles)
-        else:
-            self.closed.difference_update(tiles)
+        for col, row in tiles:
+            ch = self.rows[row][col]
+            self._solid[row][col] = closed or ch in SOLID_TILES
+            self._opaque[row][col] = closed or ch in OPAQUE_TILES
+            if closed:
+                self.closed.add((col, row))
+            else:
+                self.closed.discard((col, row))
 
     # --- collision ------------------------------------------------------
 
@@ -198,6 +209,7 @@ class World:
         side_c = ((col + 1 - ox) if dx > 0 else (ox - col)) * delta_c
         side_r = ((row + 1 - oy) if dy > 0 else (oy - row)) * delta_r
         limit = max_dist / TILE
+        opaque, cols, rows = self._opaque, self.cols, self.height
         while True:
             if side_c < side_r:
                 dist, side_c, col = side_c, side_c + delta_c, col + step_c
@@ -205,7 +217,7 @@ class World:
                 dist, side_r, row = side_r, side_r + delta_r, row + step_r
             if dist >= limit:
                 return max_dist
-            if self.is_opaque(col, row):
+            if not (0 <= row < rows and 0 <= col < cols) or opaque[row][col]:
                 return dist * TILE
 
     def line_of_sight(self, a, b):

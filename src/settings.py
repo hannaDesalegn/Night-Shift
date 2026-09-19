@@ -67,3 +67,19 @@ ENEMY_DAMAGE = 25
 ENEMY_CATCH_MARGIN = 3
 # The enemy stalls after a hit so the player has a window to escape.
 ENEMY_RECOVER_TIME = 1.3
+
+# Lighting: colors are added into a lightmap that multiplies the scene.
+AMBIENT = (20, 20, 30)
+AMBIENT_POWERED = (38, 38, 46)
+EMERGENCY_LIGHT_RADIUS = 150
+EMERGENCY_LIGHT_COLOR = (96, 20, 16)
+LAMP_RADIUS = 300
+LAMP_COLOR = (190, 180, 150)
+PLAYER_GLOW_RADIUS = 90
+PLAYER_GLOW_COLOR = (62, 62, 74)
+
+# Flashlight
+FLASHLIGHT_RANGE = 390
+FLASHLIGHT_HALF_ANGLE = 0.5
+FLASHLIGHT_RAYS = 48
+FLASHLIGHT_COLOR = (255, 238, 205)

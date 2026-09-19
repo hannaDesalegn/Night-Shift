@@ -42,7 +42,11 @@ class Session:
             return self.events
         self.elapsed += dt
         self.player.update(dt, controls.move, self.world)
-        self.enemy.update(dt, self.world)
+        alert = self.enemy.update(dt, self.world, self.player)
+        if alert == "spotted":
+            self.emit("enemy_spotted", self.enemy.pos, "It has seen you")
+        elif alert == "lost":
+            self.emit("enemy_lost", self.enemy.pos)
         for door in self.doors:
             door.update(dt)
         if self.generator.update(dt):

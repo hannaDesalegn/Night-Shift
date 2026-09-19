@@ -6,6 +6,15 @@ from src.player import Player
 from src.utils import distance_to_rect
 from src.world import World
 
+OBJECTIVES = (
+    "Find the maintenance keycard",
+    "Unlock the maintenance door",
+    "Find the generator fuse cell",
+    "Restore power in the generator room",
+    "Open the exit gate in the exit bay",
+    "Escape through the loading dock",
+)
+
 
 class Session:
     def __init__(self):
@@ -23,6 +32,7 @@ class Session:
         self.events = []
         # None while the run is in progress, otherwise the reason it ended.
         self.outcome = None
+        self.objective_index = 0
 
     def update(self, dt, controls):
         self.events = []
@@ -42,7 +52,26 @@ class Session:
             target = self.interaction_target()
             if target is not None:
                 self._interact(target)
+        self._update_objective()
         return self.events
+
+    @property
+    def objective(self):
+        return OBJECTIVES[self.objective_index]
+
+    def _current_objective_index(self):
+        if not self.maintenance_door.is_open:
+            return 1 if self.player.has("keycard") else 0
+        if not self.power_on:
+            started = self.generator.state != Generator.OFFLINE
+            return 3 if started or self.player.has("component") else 2
+        return 5 if self.exit_gate.is_open else 4
+
+    def _update_objective(self):
+        index = self._current_objective_index()
+        if index != self.objective_index:
+            self.objective_index = index
+            self.emit("objective", text=self.objective)
 
     def finish(self, outcome):
         self.outcome = outcome

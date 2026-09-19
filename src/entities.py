@@ -25,6 +25,14 @@ class Event:
     item: str = ""
 
 
+def tiles_rect(tiles):
+    cols = [c for c, _ in tiles]
+    rows = [r for _, r in tiles]
+    width = max(cols) - min(cols) + 1
+    height = max(rows) - min(rows) + 1
+    return pygame.Rect(min(cols) * TILE, min(rows) * TILE, width * TILE, height * TILE)
+
+
 class Pickup:
     def __init__(self, kind, pos):
         self.kind = kind
@@ -44,14 +52,7 @@ class Door:
         self.tiles = tiles
         self.requirement = requirement
         self.name = name
-        cols = [c for c, _ in tiles]
-        rows = [r for _, r in tiles]
-        self.rect = pygame.Rect(
-            min(cols) * TILE,
-            min(rows) * TILE,
-            (max(cols) - min(cols) + 1) * TILE,
-            (max(rows) - min(rows) + 1) * TILE,
-        )
+        self.rect = tiles_rect(tiles)
         self.open_amount = 0.0
         self.is_open = False
         self.rattle = 0.0
@@ -72,3 +73,31 @@ class Door:
         if self.is_open:
             self.open_amount = approach(self.open_amount, 1.0, dt / settings.DOOR_OPEN_TIME)
         self.rattle = max(0.0, self.rattle - dt)
+
+
+class Generator:
+    OFFLINE = "offline"
+    STARTING = "starting"
+    ONLINE = "online"
+
+    def __init__(self, tiles):
+        self.rect = tiles_rect(tiles)
+        self.state = self.OFFLINE
+        self.progress = 0.0
+
+    @property
+    def center(self):
+        return pygame.Vector2(self.rect.center)
+
+    def start(self):
+        self.state = self.STARTING
+
+    def update(self, dt):
+        """Advance the start-up sequence; returns True on the frame power comes online."""
+        if self.state != self.STARTING:
+            return False
+        self.progress = min(1.0, self.progress + dt / settings.GENERATOR_START_TIME)
+        if self.progress >= 1.0:
+            self.state = self.ONLINE
+            return True
+        return False

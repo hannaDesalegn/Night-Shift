@@ -1,3 +1,5 @@
+from src import settings
+from src.entities import Generator
 from src.session import Session
 from tests.helpers import pickup_of, press_interact, step
 
@@ -74,3 +76,38 @@ def test_exit_gate_stays_shut_without_power():
     session.player.pos.update(gate.center.x, gate.rect.top - 30)
     step(session, press_interact())
     assert not gate.is_open
+
+
+def stand_at_generator(session):
+    gen = session.generator
+    session.player.pos.update(gen.rect.centerx, gen.rect.bottom + 20)
+
+
+def test_generator_refuses_without_component():
+    session = Session()
+    stand_at_generator(session)
+    events = step(session, press_interact())
+    assert session.generator.state == Generator.OFFLINE
+    assert [e.kind for e in events] == ["generator_denied"]
+
+
+def test_generator_consumes_component_and_restores_power():
+    session = Session()
+    session.player.inventory.add("component")
+    stand_at_generator(session)
+    step(session, press_interact())
+    assert session.generator.state == Generator.STARTING
+    assert not session.player.has("component")
+    assert not session.power_on
+    events = step(session, seconds=settings.GENERATOR_START_TIME + 0.1)
+    assert session.power_on
+    assert "power_on" in [e.kind for e in events]
+
+
+def test_power_allows_exit_gate_to_open():
+    session = Session()
+    session.generator.state = Generator.ONLINE
+    gate = session.exit_gate
+    session.player.pos.update(gate.center.x, gate.rect.top - 30)
+    step(session, press_interact())
+    assert gate.is_open

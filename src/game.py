@@ -10,6 +10,7 @@ from src.renderer import (
     Camera,
     build_world_surface,
     draw_door,
+    draw_generator,
     draw_pickup,
     draw_player,
 )
@@ -83,6 +84,7 @@ class Game:
         for door in session.doors:
             can_open = session.requirement_met(door.requirement)
             draw_door(self.screen, door, self.camera, self.time, can_open, door is target)
+        draw_generator(self.screen, session.generator, self.camera, self.time)
         for pickup in self.session.pickups:
             if not pickup.collected:
                 draw_pickup(self.screen, pickup, self.camera, self.time)

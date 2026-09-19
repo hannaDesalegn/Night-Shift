@@ -352,3 +352,46 @@ def draw_door(surface, door, camera, t, can_open, highlighted):
 
 def _ease_in_out(x):
     return x * x * (3 - 2 * x)
+
+
+def draw_generator(surface, generator, camera, t):
+    state = generator.state
+    starting = state == generator.STARTING
+    online = state == generator.ONLINE
+    shake = pygame.Vector2(math.sin(t * 53), math.cos(t * 41)) * 2 if starting else (0, 0)
+    rect = generator.rect.move(-camera.offset).move(shake).inflate(-6, -6)
+
+    surface.blit(_contact_shadow(rect.width + 10, 30), (rect.x - 2, rect.bottom - 16))
+    pygame.draw.rect(surface, (46, 52, 60), rect, border_radius=6)
+    pygame.draw.rect(surface, (26, 30, 36), rect, 3, border_radius=6)
+    for y in range(rect.y + 10, rect.y + 26, 5):
+        pygame.draw.line(surface, (30, 34, 40), (rect.right - 38, y), (rect.right - 10, y), 2)
+
+    # Exhaust fan spins up with the start sequence.
+    fan_center = (rect.x + 30, rect.centery + 6)
+    pygame.draw.circle(surface, (20, 22, 26), fan_center, 22)
+    spin = t * (14 if online else 14 * generator.progress**2)
+    for i in range(4):
+        tip = _polar(fan_center, spin + i * math.pi / 2, 18)
+        pygame.draw.line(surface, (90, 98, 110), fan_center, tip, 5)
+    pygame.draw.circle(surface, (120, 128, 140), fan_center, 5)
+
+    slot = pygame.Rect(rect.right - 32, rect.y + 34, 14, 26)
+    pygame.draw.rect(surface, (14, 16, 20), slot, border_radius=3)
+    if state != generator.OFFLINE:
+        pygame.draw.rect(surface, PICKUP_COLORS["component"], slot.inflate(-6, -6), border_radius=2)
+
+    bar = pygame.Rect(rect.right - 40, rect.bottom - 16, 30, 6)
+    pygame.draw.rect(surface, (14, 16, 20), bar)
+    if online:
+        indicator = LIGHT_OPEN
+        pygame.draw.rect(surface, indicator, bar)
+        draw_glow(surface, rect.center, (60, 200, 220), 90, 0.35 + 0.05 * math.sin(t * 6))
+    elif starting:
+        indicator = LIGHT_READY if int(t * 6) % 2 else (90, 70, 30)
+        pygame.draw.rect(surface, LIGHT_READY, (bar.x, bar.y, bar.width * generator.progress, 6))
+    else:
+        indicator = LIGHT_LOCKED if int(t * 1.5) % 2 else (80, 30, 30)
+    lamp = (rect.right - 14, rect.y + 12)
+    pygame.draw.circle(surface, indicator, lamp, 4)
+    draw_glow(surface, lamp, indicator, 22, 0.6)

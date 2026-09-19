@@ -1,7 +1,7 @@
 """Rules for a single run: pickups, interactions, objectives and outcome."""
 
 from src import settings
-from src.entities import Door, Event, Pickup
+from src.entities import Door, Event, Generator, Pickup
 from src.player import Player
 from src.utils import distance_to_rect
 from src.world import World
@@ -18,7 +18,7 @@ class Session:
         )
         self.exit_gate = Door(layout.door_tiles["X"], "power", "Exit gate", self.world)
         self.doors = [self.maintenance_door, self.exit_gate]
-        self.power_on = False
+        self.generator = Generator(layout.generator_tiles)
         self.elapsed = 0.0
         self.events = []
 
@@ -28,6 +28,8 @@ class Session:
         self.player.update(dt, controls.move, self.world)
         for door in self.doors:
             door.update(dt)
+        if self.generator.update(dt):
+            self.emit("power_on", self.generator.center, "Power restored")
         self._collect_pickups()
         if controls.interact:
             target = self.interaction_target()
@@ -50,8 +52,15 @@ class Session:
 
     # --- interaction ----------------------------------------------------
 
+    @property
+    def power_on(self):
+        return self.generator.state == Generator.ONLINE
+
     def _interactables(self):
-        return [door for door in self.doors if not door.is_open]
+        targets = [door for door in self.doors if not door.is_open]
+        if self.generator.state == Generator.OFFLINE:
+            targets.append(self.generator)
+        return targets
 
     def interaction_target(self):
         """Nearest interactable within reach, measured to its edge rather than its center."""
@@ -72,11 +81,15 @@ class Session:
             if self.requirement_met(target.requirement):
                 return f"Open {target.name.lower()}"
             return f"{target.name} — locked"
-        return ""
+        if self.player.has("component"):
+            return "Install fuse cell"
+        return "Generator — missing fuse cell"
 
     def _interact(self, target):
         if isinstance(target, Door):
             self._use_door(target)
+        elif isinstance(target, Generator):
+            self._use_generator()
 
     def _use_door(self, door):
         if self.requirement_met(door.requirement):
@@ -86,3 +99,11 @@ class Session:
             door.deny()
             reason = "Keycard required" if door.requirement == "keycard" else "No power"
             self.emit("door_locked", door.center, reason)
+
+    def _use_generator(self):
+        if self.player.has("component"):
+            self.player.inventory.discard("component")
+            self.generator.start()
+            self.emit("generator_start", self.generator.center, "Fuse cell installed")
+        else:
+            self.emit("generator_denied", self.generator.center, "It needs a fuse cell")

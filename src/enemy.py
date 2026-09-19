@@ -37,6 +37,7 @@ class Enemy:
         self.lost_time = 0.0
         self.repath = 0.0
         self.search_time = 0.0
+        self.recover = 0.0
         # Seeded so search sweeps are reproducible in tests.
         self.rng = random.Random(seed)
 
@@ -47,6 +48,10 @@ class Enemy:
 
     def update(self, dt, world, player=None):
         """Advance one tick; returns "spotted", "lost" or "gave_up" on state changes."""
+        if self.recover > 0:
+            self.recover -= dt
+            self.velocity.update(0, 0)
+            return None
         sees = player is not None and self.can_detect(player, world)
         if self.state is EnemyState.PATROL:
             if self._notice(dt, sees):
@@ -66,6 +71,13 @@ class Enemy:
                 self._begin_patrol()
                 return "gave_up"
         return None
+
+    def touches(self, player):
+        reach = (self.size + player.size) / 2 + settings.ENEMY_CATCH_MARGIN
+        return self.pos.distance_squared_to(player.pos) <= reach * reach
+
+    def stagger(self):
+        self.recover = settings.ENEMY_RECOVER_TIME
 
     # --- perception -----------------------------------------------------
 

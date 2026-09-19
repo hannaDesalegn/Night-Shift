@@ -47,6 +47,9 @@ class Session:
             self.emit("enemy_spotted", self.enemy.pos, "It has seen you")
         elif alert == "lost":
             self.emit("enemy_searching", self.enemy.pos)
+        self._check_contact()
+        if self.outcome:
+            return self.events
         for door in self.doors:
             door.update(dt)
         if self.generator.update(dt):
@@ -96,6 +99,15 @@ class Session:
             if pickup.kind != "battery":
                 self.player.inventory.add(pickup.kind)
             self.emit("pickup", pickup.pos, f"{pickup.name} acquired", pickup.kind)
+
+    def _check_contact(self):
+        if not self.enemy.touches(self.player):
+            return
+        if self.player.take_damage(settings.ENEMY_DAMAGE, source=self.enemy.pos):
+            self.enemy.stagger()
+            self.emit("damage")
+            if not self.player.alive:
+                self.finish("caught")
 
     # --- interaction ----------------------------------------------------
 

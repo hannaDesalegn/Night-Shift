@@ -227,6 +227,9 @@ def _polar(origin, angle, dist):
 
 
 def draw_player(surface, player, camera):
+    # Flicker while invulnerable so the grace window is readable.
+    if player.invulnerable > 0 and int(player.invulnerable * 14) % 2:
+        return
     center = camera.to_screen(player.pos)
     angle = player.facing
     side = angle + math.pi / 2

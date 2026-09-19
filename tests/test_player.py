@@ -82,3 +82,38 @@ def test_facing_turns_toward_movement():
     player = Player(world.layout.player_start)
     run(player, world, (1, 0), 1)
     assert abs(math.remainder(player.facing, math.tau)) < 0.05
+
+
+def test_damage_reduces_health_and_grants_invulnerability():
+    player = Player((100, 100))
+    assert player.take_damage(25)
+    assert player.health == settings.PLAYER_MAX_HEALTH - 25
+    assert player.invulnerable > 0
+
+
+def test_invulnerability_blocks_repeated_hits():
+    player = Player((100, 100))
+    player.take_damage(25)
+    assert not player.take_damage(25)
+    assert player.health == settings.PLAYER_MAX_HEALTH - 25
+
+
+def test_invulnerability_expires():
+    world = World()
+    player = Player(world.layout.player_start)
+    player.take_damage(25)
+    run(player, world, (0, 0), settings.PLAYER_INVULNERABLE_TIME + 0.1)
+    assert player.take_damage(25)
+    assert player.health == settings.PLAYER_MAX_HEALTH - 50
+
+
+def test_damage_knocks_player_away_from_source():
+    player = Player((100, 100))
+    player.take_damage(10, source=(80, 100))
+    assert player.velocity.x > 0
+
+
+def test_health_never_goes_negative():
+    player = Player((100, 100))
+    player.take_damage(settings.PLAYER_MAX_HEALTH * 3)
+    assert player.health == 0 and not player.alive

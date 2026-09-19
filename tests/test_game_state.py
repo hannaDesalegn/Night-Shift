@@ -1,3 +1,4 @@
+from src import settings
 from src.entities import Generator
 from src.session import OBJECTIVES, Session
 from tests.helpers import step, walk
@@ -64,3 +65,31 @@ def test_objective_change_emits_event():
     session.player.inventory.add("keycard")
     events = step(session)
     assert [e.text for e in events if e.kind == "objective"] == [OBJECTIVES[1]]
+
+
+def place_enemy_on_player(session):
+    session.enemy.pos.update(session.player.pos)
+
+
+def test_enemy_contact_damages_player_once_per_window():
+    session = Session()
+    place_enemy_on_player(session)
+    events = step(session, seconds=0.5)
+    assert [e.kind for e in events].count("damage") == 1
+    assert session.player.health == settings.PLAYER_MAX_HEALTH - settings.ENEMY_DAMAGE
+
+
+def test_enemy_staggers_after_hit():
+    session = Session()
+    place_enemy_on_player(session)
+    step(session)
+    assert session.enemy.recover > 0
+
+
+def test_losing_all_health_ends_the_run():
+    session = Session()
+    session.player.health = settings.ENEMY_DAMAGE
+    place_enemy_on_player(session)
+    events = step(session)
+    assert session.outcome == "caught"
+    assert "caught" in [e.kind for e in events]

@@ -20,6 +20,7 @@ class Player:
         self.facing = -math.pi / 2
         self.health = settings.PLAYER_MAX_HEALTH
         self.inventory = set()
+        self.invulnerable = 0.0
         # Accumulated distance, drives the walk animation.
         self.stride = 0.0
 
@@ -41,6 +42,7 @@ class Player:
         return self.velocity.length_squared() > 400
 
     def update(self, dt, move, world):
+        self.invulnerable = max(0.0, self.invulnerable - dt)
         target = move * settings.PLAYER_SPEED
         self.velocity += (target - self.velocity) * min(1.0, settings.PLAYER_ACCEL * dt)
         if not move and self.velocity.length_squared() < 4:
@@ -60,6 +62,19 @@ class Player:
             goal = math.atan2(move.y, move.x)
             rate = min(1.0, settings.PLAYER_TURN_RATE * dt)
             self.facing = _approach_angle(self.facing, goal, rate)
+
+    def take_damage(self, amount, source=None):
+        """Apply a hit unless still recovering from the last one; returns True if it landed."""
+        if self.invulnerable > 0 or not self.alive:
+            return False
+        self.health = max(0, self.health - amount)
+        self.invulnerable = settings.PLAYER_INVULNERABLE_TIME
+        if source is not None:
+            push = self.pos - pygame.Vector2(source)
+            if push.length_squared() < 1:
+                push = pygame.Vector2(0, -1)
+            self.velocity = push.normalize() * settings.PLAYER_KNOCKBACK
+        return True
 
     def has(self, item):
         return item in self.inventory

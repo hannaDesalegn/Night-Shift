@@ -43,7 +43,7 @@ def glowing_text(font, text, color, glow_color, radius=10):
     )
     halo = pygame.transform.smoothscale(small, halo.get_size())
     halo.blit(base, (pad, pad))
-    return halo
+    return halo.convert_alpha()
 
 
 def draw_centered(surface, font, text, color, center):
@@ -120,7 +120,7 @@ class Screens:
         self.title = glowing_text(
             fonts.title, settings.TITLE.upper(), (236, 226, 206), settings.ACCENT, 14
         )
-        self.shade = pygame.Surface(size, pygame.SRCALPHA)
+        self.shade = pygame.Surface(size, pygame.SRCALPHA).convert_alpha()
         self.shade.fill((4, 5, 10, 160))
         self.vignette = _vignette(size)
         self._banners = {}
@@ -237,7 +237,7 @@ class Screens:
 def _vignette(size):
     """Darkened edges, drawn as concentric rectangles with rising alpha."""
     width, height = size
-    surface = pygame.Surface(size, pygame.SRCALPHA)
+    surface = pygame.Surface(size, pygame.SRCALPHA).convert_alpha()
     steps = 24
     for i in range(steps):
         inset = int(i * min(width, height) / (steps * 3.2))

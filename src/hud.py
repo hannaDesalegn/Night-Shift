@@ -1,5 +1,6 @@
 """In-game heads-up display."""
 
+import functools
 import math
 
 import pygame
@@ -17,11 +18,15 @@ TOAST_TIME = 3.0
 MAX_TOASTS = 3
 
 
-def panel(surface, rect, radius=6):
-    face = pygame.Surface(rect.size, pygame.SRCALPHA)
-    face.fill((0, 0, 0, 0))
+@functools.lru_cache(maxsize=16)
+def _panel_face(size, radius):
+    face = pygame.Surface(size, pygame.SRCALPHA).convert_alpha()
     pygame.draw.rect(face, PANEL_BG, face.get_rect(), border_radius=radius)
-    surface.blit(face, rect)
+    return face
+
+
+def panel(surface, rect, radius=6):
+    surface.blit(_panel_face(rect.size, radius), rect)
     pygame.draw.rect(surface, PANEL_EDGE, rect, 1, border_radius=radius)
 
 

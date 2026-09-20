@@ -270,7 +270,7 @@ PICKUP_COLORS = {
 @functools.lru_cache(maxsize=64)
 def glow_texture(color, radius, strength):
     """Radial glow with color premultiplied into RGB, meant for additive blits."""
-    tex = pygame.Surface((radius * 2, radius * 2))
+    tex = pygame.Surface((radius * 2, radius * 2)).convert()
     for r in range(radius, 0, -2):
         k = strength * (1 - r / radius) ** 2
         pygame.draw.circle(tex, [int(c * k) for c in color], (radius, radius), r)
@@ -287,7 +287,7 @@ def draw_glow(surface, center, color, radius, strength=1.0):
 def _contact_shadow(width, height):
     shadow = pygame.Surface((width, height), pygame.SRCALPHA)
     pygame.draw.ellipse(shadow, (0, 0, 0, 110), shadow.get_rect())
-    return shadow
+    return shadow.convert_alpha()
 
 
 def draw_pickup(surface, pickup, camera, t):

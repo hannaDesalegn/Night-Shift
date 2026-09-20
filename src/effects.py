@@ -104,7 +104,7 @@ class ScreenShake:
 def vignette(size, color, strength=200):
     """Colored edge glow used for damage and danger feedback."""
     width, height = size
-    surface = pygame.Surface(size, pygame.SRCALPHA)
+    surface = pygame.Surface(size, pygame.SRCALPHA).convert_alpha()
     steps = 26
     for i in range(steps):
         inset = int(i * min(width, height) * 0.30 / steps)
@@ -215,7 +215,7 @@ class Fade:
     """Black curtain used between screens: cover() darkens, reveal() clears."""
 
     def __init__(self, size, alpha=1.0):
-        self.curtain = pygame.Surface(size)
+        self.curtain = pygame.Surface(size).convert()
         self.curtain.fill((0, 0, 0))
         self.alpha = alpha
         self.direction = -1
@@ -236,6 +236,10 @@ class Fade:
 
     def draw(self, surface):
         if self.alpha <= 0:
+            return
+        if self.alpha >= 1:
+            # A plain fill; blitting at full per-surface alpha is far slower.
+            surface.fill((0, 0, 0))
             return
         self.curtain.set_alpha(int(255 * self.alpha))
         surface.blit(self.curtain, (0, 0))

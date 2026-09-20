@@ -6,6 +6,7 @@ from enum import Enum, auto
 import pygame
 
 from src import controls, settings
+from src.hud import HUD
 from src.renderer import Camera, Scene
 from src.session import Session
 from src.ui import Fonts, Menu, Screens
@@ -28,6 +29,7 @@ class Game:
         self.clock = pygame.time.Clock()
         self.fonts = Fonts()
         self.screens = Screens(self.fonts, size)
+        self.hud = HUD(self.fonts, size)
         self.main_menu = Menu([("start", "Start Game"), ("controls", "Controls"), ("quit", "Quit")])
         self.pause_menu = Menu(
             [("resume", "Resume"), ("restart", "Restart"), ("menu", "Main Menu")]
@@ -56,6 +58,7 @@ class Game:
 
     def start_run(self):
         self.session = Session()
+        self.hud.clear()
         self.scene.attach(self.session)
         self.camera.snap(self.session.player.pos)
         self.state = State.PLAYING
@@ -156,12 +159,21 @@ class Game:
         self.time += dt
         if self.state is State.PLAYING:
             snapshot = controls.read_input(pygame.key.get_pressed(), self.key_events)
-            self.session.update(dt, snapshot)
+            events = self.session.update(dt, snapshot)
+            self.handle_session_events(events)
+            self.hud.update(dt)
             self.camera.follow(self.session.player.pos, dt)
             if self.session.outcome:
                 self.finish_run()
         elif self.state is State.MENU:
             self._drift_camera(dt)
+
+    def handle_session_events(self, events):
+        """Turn gameplay events into presentation: messages now, effects and audio later."""
+        for event in events:
+            if event.kind == "score":
+                continue
+            self.hud.notify(event.text)
 
     def _drift_camera(self, dt):
         """Slow pan across the facility behind the title screen."""
@@ -177,6 +189,8 @@ class Game:
     def draw(self):
         self.screen.fill(settings.BG_COLOR)
         self.scene.draw(self.screen, self.session, self.camera, self.time)
+        if self.state in (State.PLAYING, State.PAUSED):
+            self.hud.draw(self.screen, self.session, self.time)
         if self.state is State.MENU:
             self.screens.dim(self.screen)
             self.screens.draw_menu(self.screen, self.main_menu, self.time, self.show_controls)

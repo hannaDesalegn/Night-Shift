@@ -7,6 +7,7 @@ import random
 import pygame
 
 from src import settings
+from src.enemy import EnemyState
 from src.lighting import Lighting, scale_color
 from src.settings import TILE
 from src.world import ROOMS
@@ -438,6 +439,22 @@ def draw_enemy(surface, enemy, camera, t):
     pygame.draw.circle(surface, (8, 6, 12), head, 10)
 
 
+ALERT_GLYPHS = {"chase": "!", "search": "?"}
+
+
+def draw_enemy_alert(surface, enemy, camera, fonts, t):
+    """Small glyph above the watcher so its state is readable at a glance."""
+    glyph = ALERT_GLYPHS.get(enemy.state.value)
+    if glyph is None:
+        return
+    color = ENEMY_EYES[enemy.state.value]
+    bob = math.sin(t * 6) * 2 if enemy.state.value == "chase" else math.sin(t * 2.5) * 2
+    center = camera.to_screen(enemy.pos) + (0, -30 + bob)
+    draw_glow(surface, center, color, 24, 0.6)
+    image = fonts.heading.render(glyph, True, color)
+    surface.blit(image, image.get_rect(center=center))
+
+
 def draw_enemy_eyes(surface, enemy, camera):
     """Drawn after the darkness pass so the eyes stay visible in unlit areas."""
     center = camera.to_screen(enemy.pos)
@@ -453,6 +470,7 @@ class Scene:
     """Draws a session: static layer, props, actors, lighting and emissive details."""
 
     def __init__(self, world, fonts):
+        self.fonts = fonts
         self.world_surface = build_world_surface(world, fonts)
         self.lighting = None
 
@@ -486,6 +504,7 @@ class Scene:
             for pos in session.world.layout.emergency_lights:
                 draw_emergency_light(surface, pos, camera, t)
         draw_enemy_eyes(surface, session.enemy, camera)
+        draw_enemy_alert(surface, session.enemy, camera, self.fonts, t)
 
 
 def _lights(session):
@@ -496,6 +515,9 @@ def _lights(session):
     for door in session.doors:
         color = LIGHT_OPEN if door.is_open else LIGHT_LOCKED
         lights.append((door_lamp_pos(door), 44, scale_color(color, 0.35)))
+    enemy = session.enemy
+    hunting = enemy.state is EnemyState.CHASE
+    lights.append((enemy.pos, 110 if hunting else 70, (90, 12, 10) if hunting else (46, 8, 6)))
     generator = session.generator
     if generator.state == generator.ONLINE:
         lights.append((generator.center, 200, (40, 150, 170)))

@@ -6,6 +6,7 @@ from enum import Enum, auto
 import pygame
 
 from src import controls, settings
+from src.audio import Audio
 from src.effects import Dust, Fade, FloatingText, Overlays, Particles, ScreenShake
 from src.entities import Generator
 from src.hud import HUD
@@ -32,6 +33,7 @@ class Game:
         self.fonts = Fonts()
         self.screens = Screens(self.fonts, size)
         self.hud = HUD(self.fonts, size)
+        self.audio = Audio()
         self.particles = Particles()
         self.shake = ScreenShake()
         self.popups = FloatingText()
@@ -79,6 +81,7 @@ class Game:
             self.handle_events()
             self.update(dt)
             self.draw()
+        self.audio.shutdown()
         pygame.quit()
 
     # --- state transitions ------------------------------------------------
@@ -92,6 +95,7 @@ class Game:
         self.overlays.reset()
         self.scene.attach(self.session)
         self.camera.snap(self.session.player.pos)
+        self.audio.start_ambience()
         self.state = State.PLAYING
 
     def pause(self):
@@ -106,6 +110,7 @@ class Game:
         self.state = State.VICTORY if self.session.outcome == "escaped" else State.GAME_OVER
 
     def open_menu(self):
+        self.audio.stop_ambience()
         self.main_menu.reset()
         self.result_menu = Menu([("restart", "Restart"), ("menu", "Main Menu")])
         self.show_controls = False
@@ -216,6 +221,23 @@ class Game:
             self.hud.notify(event.text)
             self._spawn_effect(event)
 
+    SOUNDS = {
+        "pickup": "pickup",
+        "door_open": "door_open",
+        "door_locked": "door_locked",
+        "generator_start": "generator_start",
+        "generator_denied": "door_locked",
+        "power_on": "power_on",
+        "damage": "damage",
+        "enemy_spotted": "spotted",
+        "escaped": "escape",
+        "flashlight_on": "click",
+        "flashlight_off": "click",
+        "flashlight_dead": "empty",
+        "flashlight_empty": "empty",
+        "caught": "damage",
+    }
+
     def _score_popup(self, event):
         pos = event.pos if event.pos.length_squared() else self.session.player.pos
         positive = not event.text.startswith("-")
@@ -224,6 +246,10 @@ class Game:
 
     def _spawn_effect(self, event):
         particles, pos = self.particles, event.pos
+        if event.kind == "pickup" and event.item == "battery":
+            self.audio.play("battery")
+        elif event.kind in self.SOUNDS:
+            self.audio.play(self.SOUNDS[event.kind])
         if event.kind == "pickup":
             particles.burst(pos, 22, PICKUP_COLORS[event.item], speed=150, life=0.7, size=4)
         elif event.kind == "door_open":

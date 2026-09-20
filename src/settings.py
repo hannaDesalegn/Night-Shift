@@ -113,3 +113,7 @@ SHAKE_DECAY = 1.9
 FADE_SPEED = 2.6
 # Beat between the run ending and the results screen, so the last moment lands.
 END_OF_RUN_DELAY = 0.9
+
+# Audio
+MASTER_VOLUME = 0.55
+AMBIENT_VOLUME = 0.35

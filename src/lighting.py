@@ -39,11 +39,12 @@ def sample_rays(world, origin, radius, facing, half_angle, rays):
     return samples
 
 
-def draw_light_layers(target, center, samples, radius, color, facing, half_angle, layers):
+def draw_light_layers(target, center, samples, radius, color, facing, half_angle, layers, scale=1):
     """Paint wall-clipped light into target.
 
     Polygons are drawn from the outside in; each overwrites the previous one with a
-    brighter color, which gives a stepped radial falloff without per-pixel work.
+    brighter color, which gives a stepped radial falloff without per-pixel work. Ray
+    distances are in world units; scale converts them to the target's resolution.
     """
     full_circle = half_angle >= math.pi
     cx, cy = center
@@ -55,7 +56,7 @@ def draw_light_layers(target, center, samples, radius, color, facing, half_angle
         points = [] if full_circle else [center]
         for angle, dx, dy, dist in samples:
             if full_circle or abs(angle - facing) <= arc:
-                d = dist if dist < reach else reach
+                d = (dist if dist < reach else reach) / scale
                 points.append((cx + dx * d, cy + dy * d))
         if len(points) >= 3:
             shade = scale_color(color, ((layer + 1) / layers) ** 0.8)
@@ -63,10 +64,21 @@ def draw_light_layers(target, center, samples, radius, color, facing, half_angle
 
 
 class Lighting:
+    """Builds the lightmap at half resolution and scales it up over the scene.
+
+    Light is smooth, so the lost detail is invisible, and every light costs a quarter of
+    the fill it otherwise would.
+    """
+
+    SCALE = 2
+
     def __init__(self, world, view_size=(settings.SCREEN_WIDTH, settings.SCREEN_HEIGHT)):
         self.world = world
-        self.lightmap = pygame.Surface(view_size).convert()
-        size = settings.FLASHLIGHT_RANGE * 2
+        self.view_size = view_size
+        small = (view_size[0] // self.SCALE, view_size[1] // self.SCALE)
+        self.lightmap = pygame.Surface(small).convert()
+        self.upscaled = pygame.Surface(view_size).convert()
+        size = 2 * settings.FLASHLIGHT_RANGE // self.SCALE
         self.beam_buffer = pygame.Surface((size, size)).convert()
         self._static = {}
 
@@ -77,13 +89,15 @@ class Lighting:
         return self._static[powered]
 
     def _build_static(self, powered):
-        surface = pygame.Surface(self.world.pixel_size).convert()
+        world_w, world_h = self.world.pixel_size
+        surface = pygame.Surface((world_w // self.SCALE, world_h // self.SCALE)).convert()
         surface.fill(settings.AMBIENT_POWERED if powered else settings.AMBIENT)
         layout = self.world.layout
-        radius = settings.EMERGENCY_LIGHT_RADIUS
+        radius = settings.EMERGENCY_LIGHT_RADIUS // self.SCALE
         tex = point_light(radius, settings.EMERGENCY_LIGHT_COLOR)
         for pos in layout.emergency_lights:
-            surface.blit(tex, pos - (radius, radius), special_flags=pygame.BLEND_RGB_ADD)
+            top_left = (pos[0] / self.SCALE - radius, pos[1] / self.SCALE - radius)
+            surface.blit(tex, top_left, special_flags=pygame.BLEND_RGB_ADD)
         if powered:
             for pos in layout.lamps:
                 self._add_lamp(surface, pos)
@@ -91,12 +105,15 @@ class Lighting:
 
     def _add_lamp(self, surface, pos):
         radius = settings.LAMP_RADIUS
+        small_radius = radius // self.SCALE
         samples = sample_rays(self.world, pos, radius, 0.0, math.pi, 160)
-        local = pygame.Surface((radius * 2, radius * 2)).convert()
+        local = pygame.Surface((small_radius * 2, small_radius * 2)).convert()
         local.fill((0, 0, 0))
-        center = (radius, radius)
-        draw_light_layers(local, center, samples, radius, settings.LAMP_COLOR, 0, math.pi, 12)
-        surface.blit(local, pos - (radius, radius), special_flags=pygame.BLEND_RGB_ADD)
+        center = (small_radius, small_radius)
+        color = settings.LAMP_COLOR
+        draw_light_layers(local, center, samples, radius, color, 0, math.pi, 12, self.SCALE)
+        top_left = (pos[0] / self.SCALE - small_radius, pos[1] / self.SCALE - small_radius)
+        surface.blit(local, top_left, special_flags=pygame.BLEND_RGB_ADD)
 
     def render(self, surface, camera, powered, lights, beam=None):
         """Light the already-drawn scene on surface.
@@ -104,17 +121,25 @@ class Lighting:
         lights: iterable of (world_pos, radius, color) point lights.
         beam: optional (world_pos, facing, radius, color) flashlight cone.
         """
-        offset = camera.offset
+        scale = self.SCALE
+        offset = camera.offset / scale
         width, height = self.lightmap.get_size()
-        self.lightmap.blit(self.static_map(powered), (0, 0), pygame.Rect(offset, (width, height)))
+        view = pygame.Rect(offset, (width, height))
+        self.lightmap.blit(self.static_map(powered), (0, 0), view)
         for pos, radius, color in lights:
-            x, y = pos[0] - offset.x - radius, pos[1] - offset.y - radius
-            if -2 * radius < x < width and -2 * radius < y < height:
-                tex = point_light(int(radius), color)
-                self.lightmap.blit(tex, (x, y), special_flags=pygame.BLEND_RGB_ADD)
+            small_radius = int(radius) // scale
+            x, y = (
+                pos[0] / scale - offset.x - small_radius,
+                pos[1] / scale - offset.y - small_radius,
+            )
+            if -2 * small_radius < x < width and -2 * small_radius < y < height:
+                self.lightmap.blit(
+                    point_light(small_radius, color), (x, y), special_flags=pygame.BLEND_RGB_ADD
+                )
         if beam is not None:
             self._render_beam(offset, *beam)
-        surface.blit(self.lightmap, (0, 0), special_flags=pygame.BLEND_RGB_MULT)
+        pygame.transform.scale(self.lightmap, self.view_size, self.upscaled)
+        surface.blit(self.upscaled, (0, 0), special_flags=pygame.BLEND_RGB_MULT)
 
     def _render_beam(self, offset, pos, facing, radius, color):
         half = settings.FLASHLIGHT_HALF_ANGLE
@@ -122,5 +147,9 @@ class Lighting:
         buffer = self.beam_buffer
         buffer.fill((0, 0, 0))
         center = pygame.Vector2(buffer.get_size()) / 2
-        draw_light_layers(buffer, center, samples, radius, color, facing, half, 10)
-        self.lightmap.blit(buffer, pos - offset - center, special_flags=pygame.BLEND_RGB_ADD)
+        draw_light_layers(buffer, center, samples, radius, color, facing, half, 8, self.SCALE)
+        top_left = (
+            pos[0] / self.SCALE - offset.x - center.x,
+            pos[1] / self.SCALE - offset.y - center.y,
+        )
+        self.lightmap.blit(buffer, top_left, special_flags=pygame.BLEND_RGB_ADD)

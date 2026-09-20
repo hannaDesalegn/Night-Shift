@@ -16,7 +16,6 @@ OBJECTIVES = (
     "Escape through the loading dock",
 )
 
-
 OUTCOMES = {
     "escaped": ("ESCAPED", "You clocked out alive."),
     "caught": ("CAUGHT", "The night watcher found you in the dark."),
@@ -47,12 +46,29 @@ class Session:
         self.objective_index = 0
 
     def update(self, dt, controls):
+        """Advance the run one frame and return the events it produced."""
         self.events = []
         if self.outcome:
             return self.events
         self.elapsed += dt
+        # Each phase can end the run, in which case the rest of the frame is skipped.
         if self._tick_clock(dt):
             return self.events
+        self._update_actors(dt, controls)
+        if self.outcome:
+            return self.events
+        self._update_props(dt)
+        self._collect_pickups()
+        if self._check_escape():
+            return self.events
+        if controls.interact:
+            target = self.interaction_target()
+            if target is not None:
+                self._interact(target)
+        self._update_objective()
+        return self.events
+
+    def _update_actors(self, dt, controls):
         self.player.update(dt, controls.move, self.world)
         self._update_flashlight(dt, controls.toggle_flashlight)
         alert = self.enemy.update(dt, self.world, self.player)
@@ -61,26 +77,22 @@ class Session:
         elif alert == "lost":
             self.emit("enemy_searching", self.enemy.pos)
         self._check_contact()
-        if self.outcome:
-            return self.events
+
+    def _update_props(self, dt):
         for door in self.doors:
             door.update(dt)
         if self.generator.update(dt):
             self.emit("power_on", self.generator.center, "Power restored")
             self.add_score(settings.SCORE_POWER, self.generator.center)
-        self._collect_pickups()
-        if self.world.is_escape(self.player.pos):
-            self.add_score(settings.SCORE_ESCAPE)
-            self.time_bonus = int(self.time_left) * settings.SCORE_PER_SECOND_LEFT
-            self.add_score(self.time_bonus)
-            self.finish("escaped")
-            return self.events
-        if controls.interact:
-            target = self.interaction_target()
-            if target is not None:
-                self._interact(target)
-        self._update_objective()
-        return self.events
+
+    def _check_escape(self):
+        if not self.world.is_escape(self.player.pos):
+            return False
+        self.add_score(settings.SCORE_ESCAPE)
+        self.time_bonus = int(self.time_left) * settings.SCORE_PER_SECOND_LEFT
+        self.add_score(self.time_bonus)
+        self.finish("escaped")
+        return True
 
     @property
     def result(self):

@@ -1,6 +1,9 @@
-import pygame
+import math
 
-from src.utils import approach, distance_to_rect, format_time
+import pygame
+import pytest
+
+from src.utils import approach, distance_to_rect, format_time, turn_toward
 
 
 def test_format_time_rounds_up_partial_seconds():
@@ -19,3 +22,8 @@ def test_distance_to_rect_is_zero_inside():
     rect = pygame.Rect(0, 0, 10, 10)
     assert distance_to_rect((5, 5), rect) == 0
     assert distance_to_rect((13, 14), rect) == 5
+
+
+def test_turn_toward_takes_the_short_way_round():
+    assert turn_toward(0.1, math.tau - 0.1, 1.0) == pytest.approx(-0.1)
+    assert turn_toward(0.0, 1.0, 0.5) == pytest.approx(0.5)

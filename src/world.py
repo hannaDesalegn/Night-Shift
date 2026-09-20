@@ -141,11 +141,6 @@ class World:
             return self._solid[row][col]
         return True
 
-    def is_opaque(self, col, row):
-        if 0 <= row < self.height and 0 <= col < self.cols:
-            return self._opaque[row][col]
-        return True
-
     def tile_of(self, pos):
         return int(pos[0] // TILE), int(pos[1] // TILE)
 

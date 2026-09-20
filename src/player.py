@@ -5,11 +5,7 @@ import math
 import pygame
 
 from src import settings
-
-
-def _approach_angle(current, target, rate):
-    diff = (target - current + math.pi) % math.tau - math.pi
-    return current + diff * rate
+from src.utils import turn_toward
 
 
 class Player:
@@ -64,7 +60,7 @@ class Player:
         if move:
             goal = math.atan2(move.y, move.x)
             rate = min(1.0, settings.PLAYER_TURN_RATE * dt)
-            self.facing = _approach_angle(self.facing, goal, rate)
+            self.facing = turn_toward(self.facing, goal, rate)
 
     # --- flashlight ------------------------------------------------------
 

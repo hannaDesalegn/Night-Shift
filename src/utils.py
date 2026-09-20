@@ -1,5 +1,7 @@
 """Small math helpers shared across modules."""
 
+import math
+
 import pygame
 
 
@@ -24,3 +26,9 @@ def distance_to_rect(point, rect):
 def format_time(seconds):
     seconds = max(0, int(seconds + 0.999))
     return f"{seconds // 60:02d}:{seconds % 60:02d}"
+
+
+def turn_toward(current, target, rate):
+    """Rotate current toward target by rate (0..1) along the shortest way round."""
+    difference = (target - current + math.pi) % math.tau - math.pi
+    return current + difference * rate

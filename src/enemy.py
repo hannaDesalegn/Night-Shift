@@ -7,6 +7,7 @@ from enum import Enum
 import pygame
 
 from src import settings
+from src.utils import turn_toward
 from src.world import tile_center
 
 
@@ -14,11 +15,6 @@ class EnemyState(Enum):
     PATROL = "patrol"
     CHASE = "chase"
     SEARCH = "search"
-
-
-def _turn_toward(current, target, rate):
-    diff = (target - current + math.pi) % math.tau - math.pi
-    return current + diff * rate
 
 
 class Enemy:
@@ -130,7 +126,7 @@ class Enemy:
         self.pos.update(nx + w / 2, ny + h / 2)
         self.velocity = velocity
         goal = math.atan2(velocity.y, velocity.x)
-        self.facing = _turn_toward(self.facing, goal, min(1.0, settings.ENEMY_TURN_RATE * dt))
+        self.facing = turn_toward(self.facing, goal, min(1.0, settings.ENEMY_TURN_RATE * dt))
 
     # --- states ---------------------------------------------------------
 

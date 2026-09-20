@@ -29,6 +29,9 @@ class Game:
         self.fonts = Fonts()
         self.screens = Screens(self.fonts, size)
         self.main_menu = Menu([("start", "Start Game"), ("controls", "Controls"), ("quit", "Quit")])
+        self.pause_menu = Menu(
+            [("resume", "Resume"), ("restart", "Restart"), ("menu", "Main Menu")]
+        )
         self.show_controls = False
         self.time = 0.0
         self.key_events = []
@@ -56,6 +59,13 @@ class Game:
         self.camera.snap(self.session.player.pos)
         self.state = State.PLAYING
 
+    def pause(self):
+        self.pause_menu.reset()
+        self.state = State.PAUSED
+
+    def resume(self):
+        self.state = State.PLAYING
+
     def open_menu(self):
         self.main_menu.reset()
         self.show_controls = False
@@ -65,15 +75,19 @@ class Game:
 
     def handle_events(self):
         self.key_events = []
+        for event in pygame.event.get():
+            self.handle_event(event)
+
+    def handle_event(self, event):
+        if event.type == pygame.QUIT:
+            self.running = False
+            return
         handlers = {
             State.MENU: self._menu_event,
             State.PLAYING: self._playing_event,
+            State.PAUSED: self._pause_event,
         }
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                self.running = False
-            else:
-                handlers[self.state](event)
+        handlers[self.state](event)
 
     def _menu_event(self, event):
         if self.show_controls:
@@ -95,9 +109,24 @@ class Game:
         if event.type != pygame.KEYDOWN:
             return
         if event.key in controls.PAUSE:
-            self.open_menu()
+            self.pause()
         else:
             self.key_events.append(event)
+
+    def _pause_event(self, event):
+        if event.type == pygame.KEYDOWN and event.key in controls.PAUSE:
+            self.resume()
+            return
+        if event.type == pygame.KEYDOWN and event.key in controls.RESTART:
+            self.start_run()
+            return
+        choice = self.pause_menu.handle(event)
+        if choice == "resume":
+            self.resume()
+        elif choice == "restart":
+            self.start_run()
+        elif choice == "menu":
+            self.open_menu()
 
     # --- update -----------------------------------------------------------
 
@@ -129,4 +158,7 @@ class Game:
         if self.state is State.MENU:
             self.screens.dim(self.screen)
             self.screens.draw_menu(self.screen, self.main_menu, self.time, self.show_controls)
+        elif self.state is State.PAUSED:
+            self.screens.dim(self.screen)
+            self.screens.draw_pause(self.screen, self.pause_menu, self.time)
         pygame.display.flip()

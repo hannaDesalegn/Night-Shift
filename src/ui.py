@@ -143,6 +143,28 @@ class Screens:
         hint = "Esc to go back" if show_controls else "W/S or arrows to choose  ·  Enter to select"
         draw_centered(surface, self.fonts.small, hint, (80, 86, 100), (width / 2, height - 36))
 
+    def draw_pause(self, surface, menu, t):
+        width, height = self.size
+        surface.blit(self.vignette, (0, 0))
+        draw_centered(
+            surface, self.fonts.heading, "PAUSED", settings.TEXT_COLOR, (width / 2, height * 0.3)
+        )
+        draw_centered(
+            surface,
+            self.fonts.small,
+            "The clock is stopped. For now.",
+            settings.TEXT_DIM,
+            (width / 2, height * 0.37),
+        )
+        menu.draw(surface, self.fonts, width / 2, height * 0.5, t)
+        draw_centered(
+            surface,
+            self.fonts.small,
+            "Esc to resume  ·  R to restart",
+            (80, 86, 100),
+            (width / 2, height - 36),
+        )
+
     def draw_controls(self, surface, center):
         panel = pygame.Rect(0, 0, 460, 60 + 38 * len(CONTROLS_HELP))
         panel.center = center

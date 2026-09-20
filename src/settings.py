@@ -110,3 +110,6 @@ SCORE_DAMAGE_PENALTY = 150
 MAX_PARTICLES = 260
 SHAKE_MAX = 18
 SHAKE_DECAY = 1.9
+FADE_SPEED = 2.6
+# Beat between the run ending and the results screen, so the last moment lands.
+END_OF_RUN_DELAY = 0.9

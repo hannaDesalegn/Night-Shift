@@ -209,3 +209,33 @@ class Dust:
             pygame.draw.circle(
                 surface, (150, 150, 160), camera.to_screen(mote["pos"]), mote["size"]
             )
+
+
+class Fade:
+    """Black curtain used between screens: cover() darkens, reveal() clears."""
+
+    def __init__(self, size, alpha=1.0):
+        self.curtain = pygame.Surface(size)
+        self.curtain.fill((0, 0, 0))
+        self.alpha = alpha
+        self.direction = -1
+
+    def cover(self):
+        self.direction = 1
+
+    def reveal(self):
+        self.direction = -1
+
+    @property
+    def covered(self):
+        return self.alpha >= 1.0
+
+    def update(self, dt):
+        step = self.direction * settings.FADE_SPEED * dt
+        self.alpha = min(1.0, max(0.0, self.alpha + step))
+
+    def draw(self, surface):
+        if self.alpha <= 0:
+            return
+        self.curtain.set_alpha(int(255 * self.alpha))
+        surface.blit(self.curtain, (0, 0))

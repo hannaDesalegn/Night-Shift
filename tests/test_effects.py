@@ -1,6 +1,6 @@
 import pygame
 
-from src.effects import Dust, FloatingText, Overlays, Particles, ScreenShake
+from src.effects import Dust, Fade, FloatingText, Overlays, Particles, ScreenShake
 
 
 def test_particles_expire():
@@ -68,3 +68,13 @@ def test_dust_fills_and_recycles_within_view():
     for _ in range(200):
         dust.update(0.1, view)
     assert all(view.inflate(80, 80).collidepoint(m["pos"]) for m in dust.motes)
+
+
+def test_fade_covers_then_reveals():
+    fade = Fade((64, 64), alpha=0.0)
+    fade.cover()
+    fade.update(10)
+    assert fade.covered
+    fade.reveal()
+    fade.update(10)
+    assert fade.alpha == 0.0

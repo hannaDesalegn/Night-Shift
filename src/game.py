@@ -6,7 +6,7 @@ from enum import Enum, auto
 import pygame
 
 from src import controls, settings
-from src.effects import Dust, FloatingText, Overlays, Particles, ScreenShake
+from src.effects import Dust, Fade, FloatingText, Overlays, Particles, ScreenShake
 from src.entities import Generator
 from src.hud import HUD
 from src.renderer import PICKUP_COLORS, Camera, Scene
@@ -36,6 +36,9 @@ class Game:
         self.shake = ScreenShake()
         self.popups = FloatingText()
         self.dust = Dust()
+        self.fade = Fade(size)
+        self.pending = None
+        self.pending_delay = 0.0
         self.overlays = Overlays(size)
         self.main_menu = Menu([("start", "Start Game"), ("controls", "Controls"), ("quit", "Quit")])
         self.pause_menu = Menu(
@@ -52,6 +55,23 @@ class Game:
         self.camera = Camera(self.session.world.pixel_size)
         self.camera.snap(self.session.player.pos)
         self.state = State.MENU
+
+    def transition_to(self, action, delay=0.0):
+        """Fade out, run action, then fade back in."""
+        self.pending = action
+        self.pending_delay = delay
+
+    def _update_transition(self, dt):
+        if self.pending is not None:
+            if self.pending_delay > 0:
+                self.pending_delay -= dt
+            else:
+                self.fade.cover()
+        self.fade.update(dt)
+        if self.pending is not None and self.fade.covered:
+            action, self.pending = self.pending, None
+            action()
+            self.fade.reveal()
 
     def run(self):
         while self.running:
@@ -121,7 +141,7 @@ class Game:
             return
         choice = self.main_menu.handle(event)
         if choice == "start":
-            self.start_run()
+            self.transition_to(self.start_run)
         elif choice == "controls":
             self.show_controls = True
         elif choice == "quit":
@@ -140,34 +160,35 @@ class Game:
             self.resume()
             return
         if event.type == pygame.KEYDOWN and event.key in controls.RESTART:
-            self.start_run()
+            self.transition_to(self.start_run)
             return
         choice = self.pause_menu.handle(event)
         if choice == "resume":
             self.resume()
         elif choice == "restart":
-            self.start_run()
+            self.transition_to(self.start_run)
         elif choice == "menu":
-            self.open_menu()
+            self.transition_to(self.open_menu)
 
     def _result_event(self, event):
         if event.type == pygame.KEYDOWN:
             if event.key in controls.RESTART:
-                self.start_run()
+                self.transition_to(self.start_run)
                 return
             if event.key in controls.PAUSE:
-                self.open_menu()
+                self.transition_to(self.open_menu)
                 return
         choice = self.result_menu.handle(event)
         if choice == "restart":
-            self.start_run()
+            self.transition_to(self.start_run)
         elif choice == "menu":
-            self.open_menu()
+            self.transition_to(self.open_menu)
 
     # --- update -----------------------------------------------------------
 
     def update(self, dt):
         self.time += dt
+        self._update_transition(dt)
         if self.state is State.PLAYING:
             snapshot = controls.read_input(pygame.key.get_pressed(), self.key_events)
             events = self.session.update(dt, snapshot)
@@ -181,8 +202,8 @@ class Game:
             self.camera.shake = self.shake.offset(self.time)
             self._generator_sparks(dt)
             self.camera.follow(self.session.player.pos, dt)
-            if self.session.outcome:
-                self.finish_run()
+            if self.session.outcome and self.pending is None:
+                self.transition_to(self.finish_run, delay=settings.END_OF_RUN_DELAY)
         elif self.state is State.MENU:
             self._drift_camera(dt)
 
@@ -265,4 +286,5 @@ class Game:
         elif self.state in (State.GAME_OVER, State.VICTORY):
             self.screens.dim(self.screen)
             self.screens.draw_result(self.screen, self.session, self.result_menu, self.time)
+        self.fade.draw(self.screen)
         pygame.display.flip()

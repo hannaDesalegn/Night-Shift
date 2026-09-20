@@ -17,6 +17,13 @@ OBJECTIVES = (
 )
 
 
+OUTCOMES = {
+    "escaped": ("ESCAPED", "You clocked out alive."),
+    "caught": ("CAUGHT", "The night watcher found you in the dark."),
+    "timeout": ("TIME UP", "Dawn came, and the doors stayed shut."),
+}
+
+
 class Session:
     def __init__(self):
         self.world = World()
@@ -74,6 +81,11 @@ class Session:
                 self._interact(target)
         self._update_objective()
         return self.events
+
+    @property
+    def result(self):
+        """Title and reason for the finished run, or None while it is still going."""
+        return OUTCOMES.get(self.outcome)
 
     @property
     def objective(self):

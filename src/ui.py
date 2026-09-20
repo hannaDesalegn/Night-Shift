@@ -5,6 +5,8 @@ import math
 import pygame
 
 from src import controls, settings
+from src.session import OBJECTIVES
+from src.utils import format_time
 
 CONTROLS_HELP = (
     ("WASD / Arrows", "Move"),
@@ -121,6 +123,7 @@ class Screens:
         self.shade = pygame.Surface(size, pygame.SRCALPHA)
         self.shade.fill((4, 5, 10, 160))
         self.vignette = _vignette(size)
+        self._banners = {}
 
     def dim(self, surface):
         surface.blit(self.shade, (0, 0))
@@ -164,6 +167,58 @@ class Screens:
             (80, 86, 100),
             (width / 2, height - 36),
         )
+
+    def draw_result(self, surface, session, menu, t):
+        width, height = self.size
+        surface.blit(self.vignette, (0, 0))
+        title, reason = session.result
+        won = session.outcome == "escaped"
+        color = (120, 220, 150) if won else settings.DANGER
+        banner = self._result_banner(title, color)
+        surface.blit(banner, banner.get_rect(center=(width / 2, height * 0.24)))
+        draw_centered(
+            surface, self.fonts.body, reason, settings.TEXT_DIM, (width / 2, height * 0.34)
+        )
+
+        rows = [("SCORE", f"{session.score}"), ("TIME PLAYED", format_time(session.elapsed))]
+        if won:
+            rows.append(("TIME BONUS", f"+{session.time_bonus}"))
+        else:
+            rows.append(("OBJECTIVE", f"{session.objective_index + 1} of {len(OBJECTIVES)}"))
+        self._draw_stats(surface, rows, (width / 2, height * 0.47))
+        if not won:
+            draw_centered(
+                surface,
+                self.fonts.small,
+                session.objective,
+                (110, 116, 130),
+                (width / 2, height * 0.56),
+            )
+        menu.draw(surface, self.fonts, width / 2, height * 0.66, t)
+        draw_centered(
+            surface,
+            self.fonts.small,
+            "R to restart  ·  Esc for the main menu",
+            (80, 86, 100),
+            (width / 2, height - 36),
+        )
+
+    def _result_banner(self, title, color):
+        # Built on first use and kept: the glow blur is too slow to redo every frame.
+        if title not in self._banners:
+            self._banners[title] = glowing_text(
+                self.fonts.heading, title, (240, 240, 240), color, 12
+            )
+        return self._banners[title]
+
+    def _draw_stats(self, surface, rows, center):
+        panel = pygame.Rect(0, 0, 440, 28 + 34 * len(rows))
+        panel.center = center
+        for i, (label, value) in enumerate(rows):
+            y = panel.y + 18 + i * 34
+            surface.blit(self.fonts.label.render(label, True, settings.TEXT_DIM), (panel.x, y + 4))
+            value_image = self.fonts.body.render(str(value), True, settings.TEXT_COLOR)
+            surface.blit(value_image, value_image.get_rect(topright=(panel.right, y)))
 
     def draw_controls(self, surface, center):
         panel = pygame.Rect(0, 0, 460, 60 + 38 * len(CONTROLS_HELP))

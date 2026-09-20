@@ -73,3 +73,39 @@ def test_every_state_draws_without_error(game):
     for state in (State.MENU, State.PLAYING, State.PAUSED):
         game.state = state
         game.draw()
+
+
+def play_until_outcome(game, outcome):
+    game.start_run()
+    game.session.finish(outcome)
+    game.update(1 / 60)
+
+
+def test_escaping_shows_the_victory_screen(game):
+    play_until_outcome(game, "escaped")
+    assert game.state is State.VICTORY
+    game.draw()
+
+
+def test_being_caught_shows_the_game_over_screen(game):
+    play_until_outcome(game, "caught")
+    assert game.state is State.GAME_OVER
+    game.draw()
+
+
+def test_timeout_shows_the_game_over_screen(game):
+    play_until_outcome(game, "timeout")
+    assert game.state is State.GAME_OVER
+
+
+def test_restart_key_starts_a_new_run_from_results(game):
+    play_until_outcome(game, "caught")
+    game.handle_event(key(pygame.K_r))
+    assert game.state is State.PLAYING
+    assert game.session.outcome is None
+
+
+def test_results_screen_returns_to_menu(game):
+    play_until_outcome(game, "escaped")
+    game.handle_event(key(pygame.K_ESCAPE))
+    assert game.state is State.MENU

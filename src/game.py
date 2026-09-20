@@ -32,6 +32,7 @@ class Game:
         self.pause_menu = Menu(
             [("resume", "Resume"), ("restart", "Restart"), ("menu", "Main Menu")]
         )
+        self.result_menu = Menu([("restart", "Restart"), ("menu", "Main Menu")])
         self.show_controls = False
         self.time = 0.0
         self.key_events = []
@@ -66,8 +67,13 @@ class Game:
     def resume(self):
         self.state = State.PLAYING
 
+    def finish_run(self):
+        self.result_menu.reset()
+        self.state = State.VICTORY if self.session.outcome == "escaped" else State.GAME_OVER
+
     def open_menu(self):
         self.main_menu.reset()
+        self.result_menu = Menu([("restart", "Restart"), ("menu", "Main Menu")])
         self.show_controls = False
         self.state = State.MENU
 
@@ -86,6 +92,8 @@ class Game:
             State.MENU: self._menu_event,
             State.PLAYING: self._playing_event,
             State.PAUSED: self._pause_event,
+            State.GAME_OVER: self._result_event,
+            State.VICTORY: self._result_event,
         }
         handlers[self.state](event)
 
@@ -128,6 +136,20 @@ class Game:
         elif choice == "menu":
             self.open_menu()
 
+    def _result_event(self, event):
+        if event.type == pygame.KEYDOWN:
+            if event.key in controls.RESTART:
+                self.start_run()
+                return
+            if event.key in controls.PAUSE:
+                self.open_menu()
+                return
+        choice = self.result_menu.handle(event)
+        if choice == "restart":
+            self.start_run()
+        elif choice == "menu":
+            self.open_menu()
+
     # --- update -----------------------------------------------------------
 
     def update(self, dt):
@@ -137,7 +159,7 @@ class Game:
             self.session.update(dt, snapshot)
             self.camera.follow(self.session.player.pos, dt)
             if self.session.outcome:
-                self.open_menu()
+                self.finish_run()
         elif self.state is State.MENU:
             self._drift_camera(dt)
 
@@ -161,4 +183,7 @@ class Game:
         elif self.state is State.PAUSED:
             self.screens.dim(self.screen)
             self.screens.draw_pause(self.screen, self.pause_menu, self.time)
+        elif self.state in (State.GAME_OVER, State.VICTORY):
+            self.screens.dim(self.screen)
+            self.screens.draw_result(self.screen, self.session, self.result_menu, self.time)
         pygame.display.flip()

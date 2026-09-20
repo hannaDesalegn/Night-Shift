@@ -108,6 +108,8 @@ SCORE_DAMAGE_PENALTY = 150
 
 # Effects
 MAX_PARTICLES = 260
+# Distance at which the watcher starts bleeding wisps toward the player.
+DREAD_RADIUS = 260
 SHAKE_MAX = 18
 SHAKE_DECAY = 1.9
 FADE_SPEED = 2.6

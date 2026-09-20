@@ -206,6 +206,7 @@ class Game:
             self.overlays.update(dt)
             self.camera.shake = self.shake.offset(self.time)
             self._generator_sparks(dt)
+            self._dread_wisps(dt)
             self.camera.follow(self.session.player.pos, dt)
             if self.session.outcome and self.pending is None:
                 self.transition_to(self.finish_run, delay=settings.END_OF_RUN_DELAY)
@@ -271,6 +272,27 @@ class Game:
             self.overlays.hit(0.9)
         elif event.kind == "escaped":
             particles.burst(pos, 40, (140, 230, 170), speed=200, life=1.0, size=4)
+
+    def _dread_wisps(self, dt):
+        """Wisps drift off the watcher when it is close, hinting at it through walls."""
+        enemy, player = self.session.enemy, self.session.player
+        distance = enemy.pos.distance_to(player.pos)
+        if distance > settings.DREAD_RADIUS:
+            return
+        nearness = 1 - distance / settings.DREAD_RADIUS
+        if self.particles.rng.random() > dt * 14 * nearness:
+            return
+        toward_player = (player.pos - enemy.pos).angle_to(pygame.Vector2(1, 0))
+        self.particles.burst(
+            enemy.pos,
+            1,
+            (120, 60, 150),
+            speed=40 + 60 * nearness,
+            life=0.9,
+            size=4,
+            direction=-math.radians(toward_player),
+            spread=0.8,
+        )
 
     def _generator_sparks(self, dt):
         """Occasional sparks while the generator is spinning up."""

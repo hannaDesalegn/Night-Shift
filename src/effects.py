@@ -1,11 +1,13 @@
 """Particles and other short-lived visual feedback."""
 
+import functools
 import math
 import random
 
 import pygame
 
 from src import settings
+from src.enemy import EnemyState
 
 
 class Particles:
@@ -69,3 +71,79 @@ class Particles:
             if p["fade"]:
                 color = tuple(int(c * (0.35 + 0.65 * fraction)) for c in color)
             pygame.draw.circle(surface, color, camera.to_screen(p["pos"]), radius)
+
+
+class ScreenShake:
+    """Trauma-based shake: events add trauma, the offset scales with its square."""
+
+    def __init__(self, seed=None):
+        self.trauma = 0.0
+        self.rng = random.Random(seed)
+        self.seeds = [self.rng.uniform(0, 100) for _ in range(2)]
+
+    def add(self, amount):
+        self.trauma = min(1.0, self.trauma + amount)
+
+    def reset(self):
+        self.trauma = 0.0
+
+    def update(self, dt):
+        self.trauma = max(0.0, self.trauma - settings.SHAKE_DECAY * dt)
+
+    def offset(self, t):
+        if self.trauma <= 0:
+            return pygame.Vector2()
+        magnitude = settings.SHAKE_MAX * self.trauma**2
+        return pygame.Vector2(
+            math.sin((t + self.seeds[0]) * 47) * magnitude,
+            math.sin((t + self.seeds[1]) * 39) * magnitude,
+        )
+
+
+@functools.lru_cache(maxsize=8)
+def vignette(size, color, strength=200):
+    """Colored edge glow used for damage and danger feedback."""
+    width, height = size
+    surface = pygame.Surface(size, pygame.SRCALPHA)
+    steps = 26
+    for i in range(steps):
+        inset = int(i * min(width, height) * 0.30 / steps)
+        alpha = int(strength * (1 - i / steps) ** 3.0)
+        rect = (inset, inset, width - 2 * inset, height - 2 * inset)
+        pygame.draw.rect(surface, (*color, alpha), rect, 14)
+    return surface
+
+
+class Overlays:
+    """Full-screen tints: a damage flash plus steady low-health and hunted warnings."""
+
+    def __init__(self, size):
+        self.size = size
+        self.flash = 0.0
+        self.flash_color = (220, 40, 30)
+
+    def hit(self, strength=1.0, color=(220, 40, 30)):
+        self.flash = min(1.0, self.flash + strength)
+        self.flash_color = color
+
+    def reset(self):
+        self.flash = 0.0
+
+    def update(self, dt):
+        self.flash = max(0.0, self.flash - dt * 2.0)
+
+    def draw(self, surface, session, t):
+        player = session.player
+        if player.health <= settings.PLAYER_MAX_HEALTH * 0.34:
+            pulse = 0.35 + 0.25 * math.sin(t * 5)
+            self._blit(surface, (170, 30, 25), int(120 * pulse))
+        elif session.enemy.state is EnemyState.CHASE:
+            pulse = 0.4 + 0.2 * math.sin(t * 7)
+            self._blit(surface, (110, 30, 120), int(90 * pulse))
+        if self.flash > 0:
+            self._blit(surface, self.flash_color, int(150 * self.flash))
+
+    def _blit(self, surface, color, alpha):
+        layer = vignette(self.size, color)
+        layer.set_alpha(alpha)
+        surface.blit(layer, (0, 0))

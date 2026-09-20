@@ -38,6 +38,8 @@ class Camera:
         self.world_w, self.world_h = world_size
         self.view_w, self.view_h = view_size
         self.pos = pygame.Vector2()
+        # Set by the screen shake so every world draw is displaced together.
+        self.shake = pygame.Vector2()
 
     def _clamped(self, target):
         x = min(max(target.x - self.view_w / 2, 0), self.world_w - self.view_w)
@@ -54,7 +56,7 @@ class Camera:
 
     @property
     def offset(self):
-        return pygame.Vector2(round(self.pos.x), round(self.pos.y))
+        return pygame.Vector2(round(self.pos.x + self.shake.x), round(self.pos.y + self.shake.y))
 
     def to_screen(self, world_pos):
         return pygame.Vector2(world_pos) - self.offset

@@ -6,7 +6,7 @@ from enum import Enum, auto
 import pygame
 
 from src import controls, settings
-from src.effects import Particles
+from src.effects import Overlays, Particles, ScreenShake
 from src.entities import Generator
 from src.hud import HUD
 from src.renderer import PICKUP_COLORS, Camera, Scene
@@ -33,6 +33,8 @@ class Game:
         self.screens = Screens(self.fonts, size)
         self.hud = HUD(self.fonts, size)
         self.particles = Particles()
+        self.shake = ScreenShake()
+        self.overlays = Overlays(size)
         self.main_menu = Menu([("start", "Start Game"), ("controls", "Controls"), ("quit", "Quit")])
         self.pause_menu = Menu(
             [("resume", "Resume"), ("restart", "Restart"), ("menu", "Main Menu")]
@@ -63,6 +65,8 @@ class Game:
         self.session = Session()
         self.hud.clear()
         self.particles.clear()
+        self.shake.reset()
+        self.overlays.reset()
         self.scene.attach(self.session)
         self.camera.snap(self.session.player.pos)
         self.state = State.PLAYING
@@ -167,6 +171,9 @@ class Game:
             self.handle_session_events(events)
             self.hud.update(dt)
             self.particles.update(dt)
+            self.shake.update(dt)
+            self.overlays.update(dt)
+            self.camera.shake = self.shake.offset(self.time)
             self._generator_sparks(dt)
             self.camera.follow(self.session.player.pos, dt)
             if self.session.outcome:
@@ -190,12 +197,19 @@ class Game:
             particles.burst(pos, 16, (150, 152, 160), speed=120, life=0.8, size=3)
         elif event.kind == "door_locked":
             particles.burst(pos, 10, (235, 80, 60), speed=90, life=0.4, size=3)
+            self.shake.add(0.15)
+        elif event.kind == "enemy_spotted":
+            self.shake.add(0.3)
         elif event.kind == "generator_start":
             particles.burst(pos, 18, (255, 200, 90), speed=170, life=0.5, size=3)
         elif event.kind == "power_on":
             particles.burst(pos, 60, (120, 225, 240), speed=280, life=1.1, size=5)
+            self.shake.add(0.45)
+            self.overlays.hit(0.6, color=(120, 210, 235))
         elif event.kind == "damage":
             particles.burst(pos, 26, (220, 60, 50), speed=190, life=0.6, size=4)
+            self.shake.add(0.7)
+            self.overlays.hit(0.9)
         elif event.kind == "escaped":
             particles.burst(pos, 40, (140, 230, 170), speed=200, life=1.0, size=4)
 
@@ -226,6 +240,7 @@ class Game:
         self.scene.draw(self.screen, self.session, self.camera, self.time)
         self.particles.draw(self.screen, self.camera)
         if self.state in (State.PLAYING, State.PAUSED):
+            self.overlays.draw(self.screen, self.session, self.time)
             self.hud.draw(self.screen, self.session, self.time)
         if self.state is State.MENU:
             self.screens.dim(self.screen)

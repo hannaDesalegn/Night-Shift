@@ -1,4 +1,6 @@
-from src.effects import Particles
+import pygame
+
+from src.effects import Overlays, Particles, ScreenShake
 
 
 def test_particles_expire():
@@ -23,3 +25,27 @@ def test_particle_budget_is_capped():
     for _ in range(10):
         particles.burst((0, 0), 20, (255, 255, 255), life=5)
     assert len(particles) == 30
+
+
+def test_screen_shake_decays_to_zero():
+    shake = ScreenShake(seed=2)
+    shake.add(1.0)
+    assert shake.offset(0.3).length() > 0
+    shake.update(2.0)
+    assert shake.trauma == 0
+    assert shake.offset(0.3) == pygame.Vector2()
+
+
+def test_screen_shake_trauma_is_clamped():
+    shake = ScreenShake(seed=2)
+    for _ in range(5):
+        shake.add(0.5)
+    assert shake.trauma == 1.0
+
+
+def test_damage_flash_fades():
+    overlays = Overlays((320, 200))
+    overlays.hit()
+    assert overlays.flash == 1.0
+    overlays.update(1.0)
+    assert overlays.flash == 0.0

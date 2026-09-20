@@ -460,7 +460,8 @@ class Scene:
         # Lighting casts rays against this session's world, so it must follow door state.
         self.lighting = Lighting(session.world)
 
-    def draw(self, surface, session, camera, t):
+    def draw(self, surface, session, camera, t, underlay=None):
+        """underlay runs after the world is drawn but before lighting, so it can be lit."""
         view = pygame.Rect(camera.offset, surface.get_size())
         surface.blit(self.world_surface, (0, 0), view)
         for door in session.doors:
@@ -471,6 +472,8 @@ class Scene:
                 draw_pickup(surface, pickup, camera, t)
         draw_player(surface, session.player, camera)
         draw_enemy(surface, session.enemy, camera, t)
+        if underlay is not None:
+            underlay(surface, camera)
 
         self.lighting.render(surface, camera, session.power_on, _lights(session), _beam(session, t))
 

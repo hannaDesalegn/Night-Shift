@@ -1,6 +1,6 @@
 import pygame
 
-from src.effects import Overlays, Particles, ScreenShake
+from src.effects import Dust, FloatingText, Overlays, Particles, ScreenShake
 
 
 def test_particles_expire():
@@ -49,3 +49,22 @@ def test_damage_flash_fades():
     assert overlays.flash == 1.0
     overlays.update(1.0)
     assert overlays.flash == 0.0
+
+
+def test_floating_text_rises_and_expires():
+    popups = FloatingText()
+    popups.add((100, 100), "+250", (255, 255, 255))
+    popups.update(0.2)
+    assert popups.items[0]["pos"].y < 100
+    popups.update(FloatingText.LIFE)
+    assert popups.items == []
+
+
+def test_dust_fills_and_recycles_within_view():
+    dust = Dust(count=12, seed=3)
+    view = pygame.Rect(0, 0, 400, 300)
+    dust.update(0.1, view)
+    assert len(dust.motes) == 12
+    for _ in range(200):
+        dust.update(0.1, view)
+    assert all(view.inflate(80, 80).collidepoint(m["pos"]) for m in dust.motes)

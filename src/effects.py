@@ -147,3 +147,65 @@ class Overlays:
         layer = vignette(self.size, color)
         layer.set_alpha(alpha)
         surface.blit(layer, (0, 0))
+
+
+class FloatingText:
+    """Score popups that drift upward and fade."""
+
+    LIFE = 1.1
+
+    def __init__(self):
+        self.items = []
+
+    def add(self, pos, text, color):
+        self.items.append(
+            {"pos": pygame.Vector2(pos), "text": text, "life": self.LIFE, "color": color}
+        )
+
+    def clear(self):
+        self.items.clear()
+
+    def update(self, dt):
+        for item in self.items:
+            item["life"] -= dt
+            item["pos"].y -= 34 * dt
+        self.items = [item for item in self.items if item["life"] > 0]
+
+    def draw(self, surface, camera, font):
+        for item in self.items:
+            image = font.render(item["text"], True, item["color"])
+            image.set_alpha(int(255 * min(1.0, item["life"] / 0.4)))
+            surface.blit(image, image.get_rect(center=camera.to_screen(item["pos"])))
+
+
+class Dust:
+    """Slow motes that drift through the view; they only show up inside lit areas."""
+
+    def __init__(self, count=70, seed=5):
+        self.rng = random.Random(seed)
+        self.count = count
+        self.motes = []
+
+    def _spawn(self, view):
+        return {
+            "pos": pygame.Vector2(
+                self.rng.uniform(view.left, view.right), self.rng.uniform(view.top, view.bottom)
+            ),
+            "vel": pygame.Vector2(self.rng.uniform(-9, 9), self.rng.uniform(-14, -3)),
+            "size": self.rng.uniform(1.0, 2.2),
+        }
+
+    def update(self, dt, view):
+        while len(self.motes) < self.count:
+            self.motes.append(self._spawn(view))
+        for mote in self.motes:
+            mote["pos"] += mote["vel"] * dt
+            # Recycle motes that drift out of the visible area.
+            if not view.inflate(80, 80).collidepoint(mote["pos"]):
+                mote.update(self._spawn(view))
+
+    def draw(self, surface, camera):
+        for mote in self.motes:
+            pygame.draw.circle(
+                surface, (150, 150, 160), camera.to_screen(mote["pos"]), mote["size"]
+            )

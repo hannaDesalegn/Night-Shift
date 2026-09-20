@@ -6,7 +6,7 @@ from enum import Enum, auto
 import pygame
 
 from src import controls, settings
-from src.effects import Overlays, Particles, ScreenShake
+from src.effects import Dust, FloatingText, Overlays, Particles, ScreenShake
 from src.entities import Generator
 from src.hud import HUD
 from src.renderer import PICKUP_COLORS, Camera, Scene
@@ -34,6 +34,8 @@ class Game:
         self.hud = HUD(self.fonts, size)
         self.particles = Particles()
         self.shake = ScreenShake()
+        self.popups = FloatingText()
+        self.dust = Dust()
         self.overlays = Overlays(size)
         self.main_menu = Menu([("start", "Start Game"), ("controls", "Controls"), ("quit", "Quit")])
         self.pause_menu = Menu(
@@ -66,6 +68,7 @@ class Game:
         self.hud.clear()
         self.particles.clear()
         self.shake.reset()
+        self.popups.clear()
         self.overlays.reset()
         self.scene.attach(self.session)
         self.camera.snap(self.session.player.pos)
@@ -171,6 +174,8 @@ class Game:
             self.handle_session_events(events)
             self.hud.update(dt)
             self.particles.update(dt)
+            self.popups.update(dt)
+            self.dust.update(dt, pygame.Rect(self.camera.offset, self.screen.get_size()))
             self.shake.update(dt)
             self.overlays.update(dt)
             self.camera.shake = self.shake.offset(self.time)
@@ -185,9 +190,16 @@ class Game:
         """Turn gameplay events into presentation: messages, particles and audio."""
         for event in events:
             if event.kind == "score":
+                self._score_popup(event)
                 continue
             self.hud.notify(event.text)
             self._spawn_effect(event)
+
+    def _score_popup(self, event):
+        pos = event.pos if event.pos.length_squared() else self.session.player.pos
+        positive = not event.text.startswith("-")
+        color = (150, 230, 170) if positive else (235, 100, 90)
+        self.popups.add(pos + (0, -26), event.text, color)
 
     def _spawn_effect(self, event):
         particles, pos = self.particles, event.pos
@@ -237,8 +249,10 @@ class Game:
 
     def draw(self):
         self.screen.fill(settings.BG_COLOR)
-        self.scene.draw(self.screen, self.session, self.camera, self.time)
+        underlay = self.dust.draw if self.state is not State.MENU else None
+        self.scene.draw(self.screen, self.session, self.camera, self.time, underlay)
         self.particles.draw(self.screen, self.camera)
+        self.popups.draw(self.screen, self.camera, self.fonts.label)
         if self.state in (State.PLAYING, State.PAUSED):
             self.overlays.draw(self.screen, self.session, self.time)
             self.hud.draw(self.screen, self.session, self.time)
